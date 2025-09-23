@@ -5,22 +5,24 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import Sidebar from './Sidebar'
 
-const schema = yup.object({
+// Schema for adding new users (includes password validation)
+const addUserSchema = yup.object({
   name: yup.string().required('Name is required').min(2, 'Name must be at least 2 characters'),
   email: yup.string().email('Invalid email').required('Email is required'),
-  password: yup.string().when('isEdit', {
-    is: false,
-    then: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters'),
-    otherwise: yup.string()
-  }),
-  confirmPassword: yup.string().when('isEdit', {
-    is: false,
-    then: yup.string().oneOf([yup.ref('password')], 'Passwords must match').required('Confirm password is required'),
-    otherwise: yup.string()
-  }),
+  password: yup.string().min(6, 'Password must be at least 6 characters').required('Password is required'),
+  confirmPassword: yup.string()
+    .oneOf([yup.ref('password')], 'Passwords must match')
+    .required('Confirm password is required'),
   role: yup.string().oneOf(['employee', 'buyer', 'admin', 'hrmanager'], 'Invalid role').required('Role is required'),
-  isActive: yup.boolean(),
-  isEdit: yup.boolean()
+  isActive: yup.boolean()
+})
+
+// Schema for editing existing users (no password validation)
+const editUserSchema = yup.object({
+  name: yup.string().required('Name is required').min(2, 'Name must be at least 2 characters'),
+  email: yup.string().email('Invalid email').required('Email is required'),
+  role: yup.string().oneOf(['employee', 'buyer', 'admin', 'hrmanager'], 'Invalid role').required('Role is required'),
+  isActive: yup.boolean()
 })
 
 const UserManagement = () => {
@@ -31,13 +33,13 @@ const UserManagement = () => {
   const [editingUser, setEditingUser] = useState(null)
   const [modalLoading, setModalLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [showDetailsModal, setShowDetailsModal] = useState(false)
-  const [selectedUser, setSelectedUser] = useState(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [userToDelete, setUserToDelete] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filteredUsers, setFilteredUsers] = useState([])
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
-    resolver: yupResolver(schema)
+    resolver: yupResolver(editingUser ? editUserSchema : addUserSchema)
   })
 
   useEffect(() => {
@@ -70,7 +72,12 @@ const UserManagement = () => {
       setModalLoading(true)
       const submitData = editingUser
         ? { name: data.name, email: data.email, role: data.role, isActive: data.isActive }
-        : { name: data.name, email: data.email, password: data.password, role: data.role }
+        : {
+            name: data.name,
+            email: data.email,
+            password: data.password,
+            role: data.role
+          }
       if (editingUser) {
         await axios.put(`http://localhost:5000/api/users/${editingUser._id}`, submitData)
       } else {
@@ -93,21 +100,34 @@ const UserManagement = () => {
       name: user.name,
       email: user.email,
       role: user.role,
-      isActive: user.isActive,
-      isEdit: true
-    })
+      isActive: user.isActive
+    }, { resolver: yupResolver(editUserSchema) })
     setShowModal(true)
   }
 
-  const handleDelete = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return
+  const handleDelete = (user) => {
+    setUserToDelete(user)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return
 
     try {
-      await axios.delete(`http://localhost:5000/api/users/${userId}`)
+      await axios.delete(`http://localhost:5000/api/users/${userToDelete._id}`)
       fetchUsers()
+      setShowDeleteModal(false)
+      setUserToDelete(null)
     } catch (err) {
       setError('Failed to delete user')
+      setShowDeleteModal(false)
+      setUserToDelete(null)
     }
+  }
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false)
+    setUserToDelete(null)
   }
 
   const handleToggleActive = async (user) => {
@@ -124,11 +144,6 @@ const UserManagement = () => {
     }
   }
 
-  const viewDetails = (user) => {
-    setSelectedUser(user)
-    setShowDetailsModal(true)
-  }
-
   const openAddModal = () => {
     setEditingUser(null)
     reset({
@@ -137,9 +152,8 @@ const UserManagement = () => {
       password: '',
       confirmPassword: '',
       role: 'employee',
-      isActive: true,
-      isEdit: false
-    })
+      isActive: true
+    }, { resolver: yupResolver(addUserSchema) })
     setShowModal(true)
   }
 
@@ -704,7 +718,7 @@ const UserManagement = () => {
                               )}
                             </button>
                             <button
-                              onClick={() => handleDelete(user._id)}
+                              onClick={() => handleDelete(user)}
                               className="text-red-400 hover:text-red-600 p-1 rounded-md hover:bg-red-50 transition-colors"
                               title="Delete user"
                             >
@@ -885,101 +899,63 @@ const UserManagement = () => {
         </div>
       )}
 
-      {/* Details Modal */}
-      {showDetailsModal && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowDetailsModal(false)}>
-          <div className="bg-white rounded-2xl p-6 m-4 max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-semibold text-lg mr-4">
-                  {selectedUser.name ? selectedUser.name.charAt(0).toUpperCase() : 'U'}
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-slate-900">{selectedUser.name || 'Unknown'}</h3>
-                  <p className="text-sm text-slate-600">{selectedUser.email}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-2xl p-6 m-4 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center">
+              {/* Warning Icon */}
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
-              </button>
-            </div>
+              </div>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">Role</label>
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${
-                    selectedUser.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                    selectedUser.role === 'hrmanager' ? 'bg-emerald-100 text-emerald-800' :
-                    selectedUser.role === 'buyer' ? 'bg-green-100 text-green-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {selectedUser.role === 'hrmanager' ? 'HR Manager' : selectedUser.role.charAt(0).toUpperCase() + selectedUser.role.slice(1)}
-                  </span>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">Status</label>
-                  <div className="flex items-center">
-                    <div className={`w-2 h-2 rounded-full mr-2 ${selectedUser.isActive ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                    <span className={`text-sm font-medium ${selectedUser.isActive ? 'text-green-800' : 'text-red-800'}`}>
-                      {selectedUser.isActive ? 'Active' : 'Inactive'}
-                    </span>
+              {/* Title */}
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Delete User</h3>
+
+              {/* Message */}
+              <p className="text-slate-600 mb-6 leading-relaxed">
+                Are you sure you want to delete <span className="font-semibold text-slate-900">{userToDelete.name}</span>?
+                This action cannot be undone and will permanently remove the user from the system.
+              </p>
+
+              {/* User Info Card */}
+              <div className="bg-slate-50 rounded-xl p-4 mb-6">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm mr-3">
+                    {userToDelete.name ? userToDelete.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium text-slate-900">{userToDelete.name}</p>
+                    <p className="text-sm text-slate-500">{userToDelete.email}</p>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-500 mb-1">Email Address</label>
-                <p className="text-sm text-slate-900">{selectedUser.email}</p>
+              {/* Buttons */}
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={cancelDelete}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={modalLoading}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                  {modalLoading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Deleting...
+                    </div>
+                  ) : (
+                    'Delete User'
+                  )}
+                </button>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-500 mb-1">User ID</label>
-                <p className="text-sm text-slate-900 font-mono">{selectedUser._id}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">Created</label>
-                  <p className="text-sm text-slate-900">
-                    {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    }) : 'N/A'}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">Last Updated</label>
-                  <p className="text-sm text-slate-900">
-                    {selectedUser.updatedAt ? new Date(selectedUser.updatedAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    }) : 'N/A'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center justify-end space-x-3">
-              <button
-                onClick={() => handleEdit(selectedUser)}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                Edit User
-              </button>
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>
