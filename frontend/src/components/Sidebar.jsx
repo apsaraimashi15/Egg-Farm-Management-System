@@ -53,7 +53,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       {/* Sidebar */}
       <div className={`
         fixed inset-y-0 left-0 z-50 w-72 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900
-        shadow-2xl transform transition-all duration-300 ease-in-out
+        shadow-2xl transform transition-all duration-300 ease-in-out overflow-hidden
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 lg:static lg:inset-0
         border-r border-slate-700/50
@@ -82,40 +82,44 @@ const Sidebar = ({ isOpen, onClose }) => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-8 space-y-2">
-            <div className="mb-6">
+          <nav className="flex-1 px-4 py-8 overflow-hidden flex flex-col min-h-0">
+            <div className="mb-6 flex-shrink-0">
               <h2 className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 Navigation
               </h2>
             </div>
 
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`
-                    group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200
-                    ${isActive
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/25'
-                      : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                    }
-                  `}
-                  onClick={onClose}
-                >
-                  <span className="mr-4 text-lg">{item.icon}</span>
-                  <span className="flex-1">{item.name}</span>
-                  {isActive && (
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                  )}
-                </Link>
-              )
-            })}
+            <div className="flex-1 overflow-hidden">
+              <div className="space-y-2 overflow-hidden">
+                {navigation.map((item) => {
+                  const isActive = location.pathname === item.href
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`
+                        group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200
+                        ${isActive
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/25'
+                          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                        }
+                      `}
+                      onClick={onClose}
+                    >
+                      <span className="mr-4 text-lg">{item.icon}</span>
+                      <span className="flex-1">{item.name}</span>
+                      {isActive && (
+                        <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
           </nav>
 
           {/* User Profile Section */}
-          <div className="p-6 border-t border-slate-700/50 bg-slate-800/50">
+          <div className="flex-shrink-0 p-6 border-t border-slate-700/50 bg-slate-800/50">
             <div className="flex items-center mb-4">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -147,7 +151,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-slate-700/30 bg-slate-900/50">
+          <div className="flex-shrink-0 p-4 border-t border-slate-700/30 bg-slate-900/50">
             <div className="text-center">
               <p className="text-xs text-slate-500">
                 © 2025 Egg Farm System
