@@ -6,7 +6,11 @@ import * as yup from 'yup'
 import { useAuth } from '../context/AuthContext'
 
 const registerSchema = yup.object({
-  name: yup.string().required('Name is required').min(2, 'Name must be at least 2 characters'),
+  name: yup
+    .string()
+    .required('Name is required')
+    .min(2, 'Name must be at least 2 characters')
+    .matches(/^[A-Za-z\s]+$/, 'Name can only contain letters and spaces'),
   email: yup.string().email('Invalid email').required('Email is required'),
   password: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters'),
   confirmPassword: yup.string().oneOf([yup.ref('password')], 'Passwords must match').required('Confirm password is required'),
@@ -121,6 +125,12 @@ const Register = () => {
                         type="text"
                         className="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                         placeholder="Enter your full name"
+                        onKeyPress={(e) => {
+                          const pattern = /^[A-Za-z\s]+$/;
+                          if (!pattern.test(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
                       />
                     </div>
                     {registerForm.formState.errors.name && (
