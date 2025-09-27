@@ -1,8 +1,8 @@
-// src/components/TicketManagement.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Sidebar from "./Sidebar";
 import { useAuth } from "../context/AuthContext";
+import logo from "../assets/logo.png";
 
 const API_BASE = "http://localhost:5000";
 const CATEGORIES = ["general", "product", "billing", "technical"];
@@ -160,7 +160,6 @@ const TicketManagement = ({ mode = "admin" }) => {
     try {
       const { jsPDF } = await import("jspdf");
 
-      // === basics ===
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth(); // 210
       const pageHeight = pdf.internal.pageSize.getHeight(); // 297
@@ -171,7 +170,6 @@ const TicketManagement = ({ mode = "admin" }) => {
       const CELL_PAD_X = 2;
       const LINE_H = 4.2; // row line height in mm
 
-      // pull from component scope safely
       const _COMPANY = {
         name: COMPANY?.name || "Company",
         email: COMPANY?.email || "",
@@ -193,6 +191,23 @@ const TicketManagement = ({ mode = "admin" }) => {
         pdf.setDrawColor(...color);
         pdf.line(x1, y1, x2, y2);
       };
+
+      // --- ADD inside generateTicketPDF() before you use it ---
+      const toDataURL = (url) =>
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous"; // remote URL nam CORS issues nathi wenna
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL("image/png"));
+          };
+          img.onerror = reject;
+          img.src = url;
+        });
 
       const bottomLimit = () => pageHeight - FOOTER_SPACE;
 
@@ -231,16 +246,34 @@ const TicketManagement = ({ mode = "admin" }) => {
         if (y + needed > bottomLimit()) addPage();
       };
 
+      // === inside generateTicketPDF(), after you create `pdf` and before drawHeader() is defined ===
+      let logoDataURL = null;
+      try {
+        logoDataURL = await toDataURL(logo); // local asset import
+        // If you have a base64 directly, you can do: logoDataURL = YOUR_BASE64_STRING;
+      } catch (e) {
+        console.warn("Logo load failed:", e);
+      }
+
       const drawHeader = () => {
         // band
         pdf.setFillColor(40, 87, 74);
         pdf.rect(0, 0, pageWidth, HEADER_BAND, "F");
 
+        // logo (if available)
+        if (logoDataURL) {
+          // x, y, w, h  (mm)
+          pdf.addImage(logoDataURL, "PNG", margin, 6, 18, 18);
+        }
+
+        // shift text right if logo exists
+        const xShift = logoDataURL ? 22 : 0;
+
         // left: company
         pdf.setTextColor(255, 255, 255);
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(15);
-        pdf.text(_COMPANY.name, margin, 13);
+        pdf.text(_COMPANY.name, margin + xShift, 13);
 
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(9);
@@ -254,7 +287,7 @@ const TicketManagement = ({ mode = "admin" }) => {
         ].filter(Boolean);
 
         leftLines.forEach((s) => {
-          pdf.text(s, margin, hy);
+          pdf.text(s, margin + xShift, hy);
           hy += 4;
         });
 
@@ -589,7 +622,6 @@ const TicketManagement = ({ mode = "admin" }) => {
     address: "No. 12, Farm Road, Gampaha",
   };
 
-  // stats
   const total = tickets.length;
   const openCount = tickets.filter((t) => t.status === "open").length;
   const inprog = tickets.filter((t) => t.status === "in_progress").length;
@@ -818,6 +850,7 @@ const TicketManagement = ({ mode = "admin" }) => {
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
                     {tickets.map((t, i) => {
+                      //ticket object array data divided into rows using map function t is ticket object i is index number
                       const disableBuyerEdit = buyerView && t.status !== "open";
                       return (
                         <tr key={t._id} className="hover:bg-slate-50">

@@ -12,9 +12,7 @@ import Dashboard from "./components/Dashboard";
 import UserManagement from "./components/UserManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
 import FeedManagement from "./components/FeedManagement";
-
-// ⬇️ add these pages (create them if you haven't yet)
-import TicketManagement from "./components/TicketManagement"; // or './pages/TicketManagement'
+import TicketManagement from "./components/TicketManagement";
 
 import "./App.css";
 

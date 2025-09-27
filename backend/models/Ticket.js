@@ -6,7 +6,7 @@ const ticketSchema = new mongoose.Schema(
     ticketNo: {
       type: String,
       unique: true,
-      index: true, // quick lookups
+      index: true,
     },
     buyerId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -44,7 +44,6 @@ const ticketSchema = new mongoose.Schema(
       default: "open",
       index: true,
     },
-    // create date
     createdAt: {
       type: Date,
       default: Date.now,
@@ -52,9 +51,6 @@ const ticketSchema = new mongoose.Schema(
     },
   },
   {
-    // Note: timestamps add createdAt/updatedAt automatically.
-    // If you prefer your own createdAt above, you can keep timestamps: true as well.
-    // Here we’ll enable timestamps to have updatedAt too.
     timestamps: true,
   }
 );

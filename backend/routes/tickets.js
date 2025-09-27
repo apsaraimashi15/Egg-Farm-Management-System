@@ -16,9 +16,8 @@ router.post("/", auth, authorize("buyer"), async (req, res) => {
       buyerId: req.user._id, // logged-in buyer
       subject,
       message,
-      category, // 'product' | 'billing' | 'technical' | 'general'
-      priority, // 'low' | 'medium' | 'high'
-      // status default = 'open'
+      category,
+      priority,
     });
 
     res.status(201).json(ticket);
