@@ -4,6 +4,11 @@ import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useAuth } from '../context/AuthContext'
+import FormInput from './auth/FormInput'
+import FormSelect from './auth/FormSelect'
+import ErrorMessage from './auth/ErrorMessage'
+import OTPForm from './auth/OTPForm'
+import Logo from './auth/Logo'
 
 const registerSchema = yup.object({
   name: yup
