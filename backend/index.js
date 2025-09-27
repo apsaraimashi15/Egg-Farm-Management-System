@@ -12,6 +12,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+require('./cron');
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/eggfarm')
@@ -38,6 +39,10 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/eggfarm')
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/leaves', require('./routes/leaveRoutes'));
+app.use('/api/attendance', require('./routes/attendanceRoutes'));
+
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
