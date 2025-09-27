@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -6,11 +6,33 @@ const Sidebar = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth()
   const location = useLocation()
 
+  // Prevent body scroll when sidebar is open on mobile
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
+
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: '🏠' },
 
+    ...(user?.role === 'buyer' ? [
+      { name: 'Store', href: '/store', icon: '🛒' }
+    ] : []),
+
     ...(user?.role === 'admin' || user?.role === 'hrmanager' ? [
       { name: 'User Management', href: '/users', icon: '👥' }
+    ] : []),
+
+    ...(user?.role === 'admin' ? [
+      { name: 'Purchase Management', href: '/purchases', icon: '🛒' }
     ] : []),
 
     ...(user?.role === "admin" || user?.role === "employee" ? [
@@ -52,10 +74,11 @@ const Sidebar = ({ isOpen, onClose }) => {
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900
-        shadow-2xl transform transition-all duration-300 ease-in-out overflow-hidden
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:static lg:inset-0
+        fixed inset-y-0 left-0 z-50 w-64 h-screen
+        bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900
+        shadow-2xl transform transition-all duration-300 ease-in-out
+        ${isOpen ? "translate-x-0" : "-translate-x-full"}
+        lg:translate-x-0
         border-r border-slate-700/50
       `}>
         <div className="flex flex-col h-full">
@@ -81,40 +104,39 @@ const Sidebar = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 px-4 py-8 overflow-hidden flex flex-col min-h-0">
+          {/* Scrollable Navigation */}
+          <nav className="flex-1 px-4 py-8 overflow-y-auto">
             <div className="mb-6 flex-shrink-0">
               <h2 className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 Navigation
               </h2>
             </div>
 
-            <div className="flex-1 overflow-hidden">
-              <div className="space-y-2 overflow-hidden">
-                {navigation.map((item) => {
-                  const isActive = location.pathname === item.href
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className={`
-                        group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200
-                        ${isActive
-                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/25'
-                          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                        }
-                      `}
-                      onClick={onClose}
-                    >
-                      <span className="mr-4 text-lg">{item.icon}</span>
-                      <span className="flex-1">{item.name}</span>
-                      {isActive && (
-                        <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                      )}
-                    </Link>
-                  )
-                })}
-              </div>
+            <div className="space-y-2">
+              {navigation.map((item) => {
+                const isActive = location.pathname === item.href
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={`
+                      group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200
+                      ${
+                        isActive
+                          ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/25"
+                          : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                      }
+                    `}
+                    onClick={onClose}
+                  >
+                    <span className="mr-4 text-lg">{item.icon}</span>
+                    <span className="flex-1">{item.name}</span>
+                    {isActive && (
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    )}
+                  </Link>
+                )
+              })}
             </div>
           </nav>
 

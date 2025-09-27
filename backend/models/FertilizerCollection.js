@@ -13,6 +13,11 @@ const FertilizerSchema = new mongoose.Schema({
   usedQuantity: {
     type: Number,
     default: 0
+  },
+  employee: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   }
 }, {
   timestamps: true

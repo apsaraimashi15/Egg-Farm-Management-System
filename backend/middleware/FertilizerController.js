@@ -10,7 +10,7 @@ exports.recordFertilizer = async (req, res) => {
       return res.status(400).json({ message: 'Fertilizer for this month already recorded' });
     }
 
-    const fertilizer = await Fertilizer.create({ month, quantityCollected });
+    const fertilizer = await Fertilizer.create({ month, quantityCollected, employee: req.user._id });
 
     res.status(201).json({
       message: 'Fertilizer recorded successfully',

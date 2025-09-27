@@ -32,7 +32,7 @@ exports.updateStock = async (req, res) => {
 
     let stock = await EggStock.findOne({ eggType });
     if (!stock) {
-      stock = await EggStock.create({ eggType, currentStock: change });
+      stock = await EggStock.create({ eggType, currentStock: change, employee: req.user._id });
     } else {
       stock.currentStock += change;
       stock.lastUpdated = new Date();

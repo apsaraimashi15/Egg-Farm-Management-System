@@ -251,7 +251,7 @@ const EggProductionManagement = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 flex">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1">
+      <div className="flex-1 lg:ml-64">
         <div className="lg:hidden">
           <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm px-4 py-3 shadow-sm border-b border-white/20">
             <button
@@ -267,7 +267,7 @@ const EggProductionManagement = () => {
           </div>
         </div>
 
-        <main className="p-6 mb-100">
+        <main className="p-6 mb-100 overflow-y-auto">
           <div className="max-w-screen-2xl mx-auto">
             <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-800 rounded-2xl p-8 mb-8 text-white">
               <div className="absolute inset-0 opacity-10">

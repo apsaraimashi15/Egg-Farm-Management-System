@@ -18,7 +18,7 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.63.0",
-    "react-router-dom": "^7.9.1",
+    "react-router-dom": "^6.28.0",
     "tailwindcss": "^4.1.13",
     "yup": "^1.7.1"
   },

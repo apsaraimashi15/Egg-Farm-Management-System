@@ -19,7 +19,8 @@ exports.recordEggProduction = async (req, res) => {
     const production = await EggProduction.create({ 
       date, 
       quantity: prodQuantity, 
-      type: eggType 
+      type: eggType,
+      employee: req.user._id
     });
 
     // 2. Update or create stock

@@ -16,6 +16,11 @@ const EggProductionSchema = new mongoose.Schema({
     required: false, // Make it optional since your frontend shows it can be empty
     trim: true,
     default: 'Mixed' // Provide a default value
+  },
+  employee: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   }
 }, {
   timestamps: true

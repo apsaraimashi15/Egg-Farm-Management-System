@@ -447,7 +447,7 @@ const UserManagement = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main content */}
-      <div className="flex-1">
+      <div className="flex-1 lg:ml-64">
         {/* Mobile menu button */}
         <div className="lg:hidden">
           <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm px-4 py-3 shadow-sm border-b border-white/20">
@@ -465,7 +465,7 @@ const UserManagement = () => {
         </div>
 
         {/* Page content */}
-        <main className="flex-1 p-6 lg:p-8">
+        <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           <div className="max-w-screen-2xl mx-auto">
             {/* Header */}
             <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-800 rounded-2xl p-8 mb-8 text-white">
