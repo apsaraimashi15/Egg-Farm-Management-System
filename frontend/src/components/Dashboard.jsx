@@ -1,534 +1,554 @@
-import React, { useState, useEffect } from "react";
-import { Link, useNavigate, Outlet } from "react-router-dom";
+// src/components/Dashboard.jsx
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Sidebar from "./Sidebar";
+import axios from "axios";
+
+const API = "http://localhost:5000";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    todayProduction: 0,
-    ordersPlaced: 0,
-    tasksCompleted: 0,
-    totalRevenue: 0,
-    systemStatus: "Active",
-  });
-  const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const isAdmin = user?.role === "admin";
+  const isHR = user?.role === "hrmanager";
+  const isBuyer = user?.role === "buyer";
+  const isEmployee = user?.role === "employee";
+
+  const roleMeta = {
+    admin: {
+      icon: "🛠️",
+      title: "Admin Control Center",
+      subtitle:
+        "Manage users, feed stock, production, inquiries, and buyer orders.",
+    },
+    hrmanager: {
+      icon: "🧑‍💼",
+      title: "HR Operations",
+      subtitle: "Track attendance, leaves, and view users.",
+    },
+    buyer: {
+      icon: "🛒",
+      title: "Buyer Portal",
+      subtitle:
+        "Place orders, track deliveries, and view production availability.",
+    },
+    employee: {
+      icon: "🥚",
+      title: "Production & Feed",
+      subtitle: "Record egg production and request/record feed usage.",
+    },
+  };
+  const meta = roleMeta[user?.role] ?? roleMeta.employee;
+
+  // real API counts
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalTickets, setTotalTickets] = useState(0);
+  const [totalFeedQty, setTotalFeedQty] = useState(0);
+  const [totalFeedItems, setTotalFeedItems] = useState(0);
+  const [myTicketsCount, setMyTicketsCount] = useState(0);
+
+  // local demo stats
+  const [stats, setStats] = useState({
+    ticketsOpen: 0,
+    ticketsInProgress: 0,
+    feedItems: 0,
+    feedQty: 0,
+    eggToday: 0,
+    eggThisMonth: 0,
+    buyerOrders: 0,
+    buyerPending: 0,
+    attendanceToday: 0,
+    leavesPending: 0,
+  });
+  const [recent, setRecent] = useState([]);
+
+  const axiosClient = useMemo(() => {
+    const token = localStorage.getItem("token");
+    return axios.create({
+      baseURL: API,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  }, [user?._id, user?.role]); // update if user changes
+
   useEffect(() => {
-    // Simulate API calls
-    const fetchDashboardData = async () => {
+    const loadCounts = async () => {
       setLoading(true);
 
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // USERS (only for admin/hr)
+      try {
+        if (isAdmin || isHR) {
+          const res = await axiosClient.get("/api/users");
+          setTotalUsers(Array.isArray(res.data) ? res.data.length : 0);
+        } else {
+          setTotalUsers(0);
+        }
+      } catch (e) {
+        console.warn("users error:", e?.response?.status, e?.response?.data);
+        setTotalUsers(0);
+      }
 
-      // Mock data based on user role
-      const mockData = {
-        admin: {
-          totalUsers: 1542,
-          systemStatus: "Optimal",
-          recentActivity: [
-            {
-              id: 1,
-              action: "New user registered",
-              time: "2 min ago",
-              type: "user",
-            },
-            {
-              id: 2,
-              action: "System backup completed",
-              time: "1 hour ago",
-              type: "system",
-            },
-            {
-              id: 3,
-              action: "Settings updated",
-              time: "3 hours ago",
-              type: "settings",
-            },
-          ],
-        },
-        employee: {
-          todayProduction: 1250,
-          tasksCompleted: 8,
-          weeklyTarget: 75,
-          recentActivity: [
-            {
-              id: 1,
-              action: "Production batch completed",
-              time: "30 min ago",
-              type: "production",
-            },
-            {
-              id: 2,
-              action: "Quality check passed",
-              time: "2 hours ago",
-              type: "quality",
-            },
-            {
-              id: 3,
-              action: "New task assigned",
-              time: "4 hours ago",
-              type: "task",
-            },
-          ],
-        },
-        buyer: {
-          ordersPlaced: 24,
-          totalRevenue: 12500,
-          pendingOrders: 3,
-          recentActivity: [
-            {
-              id: 1,
-              action: "Order #1234 shipped",
-              time: "1 hour ago",
-              type: "order",
-            },
-            {
-              id: 2,
-              action: "Payment received",
-              time: "3 hours ago",
-              type: "payment",
-            },
-            {
-              id: 3,
-              action: "New product available",
-              time: "5 hours ago",
-              type: "product",
-            },
-          ],
-        },
-      };
+      // TICKETS (use data.total from your backend)
+      try {
+        const params = { page: 1, limit: 1 }; // we only need the count
+        // For buyers, backend already scopes to own tickets; adding mine=true is fine
+        if (isBuyer) params.mine = "true";
 
-      const userData = mockData[user?.role] || {};
-      setStats((prev) => ({ ...prev, ...userData }));
-      setRecentActivity(userData.recentActivity || []);
+        const res = await axiosClient.get("/api/tickets", { params });
+
+        let ticketTotal = 0;
+        if (res?.data && typeof res.data === "object") {
+          if (typeof res.data.total === "number") ticketTotal = res.data.total;
+          else if (Array.isArray(res.data.items))
+            ticketTotal = res.data.items.length;
+          else if (Array.isArray(res.data)) ticketTotal = res.data.length;
+        }
+
+        setTotalTickets(ticketTotal); // all tickets (admin/hr) or my tickets (buyer scope)
+        setMyTicketsCount(isBuyer ? ticketTotal : 0);
+      } catch (e) {
+        console.warn("tickets error:", e?.response?.status, e?.response?.data);
+        setTotalTickets(0);
+        setMyTicketsCount(0);
+      }
+
+      // FEED TOTALS
+      try {
+        const res = await axiosClient.get("/api/feed/totals");
+        const arr = Array.isArray(res.data) ? res.data : [];
+        const qtySum = arr.reduce(
+          (sum, r) => sum + (Number(r.quantity) || 0),
+          0
+        );
+        setTotalFeedQty(qtySum);
+        setTotalFeedItems(arr.length);
+      } catch (e) {
+        console.warn(
+          "feed totals error:",
+          e?.response?.status,
+          e?.response?.data
+        );
+        setTotalFeedQty(0);
+        setTotalFeedItems(0);
+      }
+
       setLoading(false);
     };
 
-    fetchDashboardData();
-  }, [user?.role]);
+    loadCounts();
+  }, [axiosClient, isAdmin, isHR, isBuyer, isEmployee]);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      await new Promise((r) => setTimeout(r, 400));
+
+      if (isAdmin) {
+        setStats((s) => ({
+          ...s,
+          ticketsOpen: 12,
+          ticketsInProgress: 5,
+          feedItems: 6,
+          feedQty: 1280,
+          eggToday: 4200,
+          buyerOrders: 37,
+        }));
+        setRecent([
+          {
+            id: 1,
+            text: "User added: chamara@company.com",
+            t: "user",
+            when: "2m",
+          },
+          {
+            id: 2,
+            text: "Feed restocked: Layer Feed 200kg",
+            t: "feed",
+            when: "45m",
+          },
+          {
+            id: 3,
+            text: "Ticket resolved: TKT-000345",
+            t: "ticket",
+            when: "1h",
+          },
+        ]);
+      } else if (isHR) {
+        setStats((s) => ({
+          ...s,
+          attendanceToday: 97,
+          leavesPending: 4,
+          ticketsOpen: 3,
+        }));
+        setRecent([
+          {
+            id: 1,
+            text: "Marked attendance sync complete",
+            t: "hr",
+            when: "10m",
+          },
+          {
+            id: 2,
+            text: "Leave request pending: EMP-103",
+            t: "hr",
+            when: "1h",
+          },
+          { id: 3, text: "New user onboarded", t: "user", when: "3h" },
+        ]);
+      } else if (isBuyer) {
+        setStats((s) => ({
+          ...s,
+          buyerOrders: 0, // replace when you wire orders
+          buyerPending: 0,
+          eggThisMonth: 0,
+          ticketsOpen: 0,
+        }));
+        setRecent([]);
+      } else if (isEmployee) {
+        setStats((s) => ({ ...s, eggToday: 4100, ticketsOpen: 0 }));
+        setRecent([
+          {
+            id: 1,
+            text: "Egg batch logged: 2,000 (Shed A)",
+            t: "prod",
+            when: "20m",
+          },
+          {
+            id: 2,
+            text: "Feed issued: 25kg to EMP-221",
+            t: "feed",
+            when: "1h",
+          },
+        ]);
+      }
+
+      setLoading(false);
+    };
+    load();
+  }, [isAdmin, isHR, isBuyer, isEmployee]);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
-  const StatCard = ({ title, value, change, icon, color, subtitle }) => (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-      <div className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
-            <p className="text-2xl font-bold text-gray-900 mb-1">
-              {loading ? (
-                <div className="h-8 w-20 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                value
-              )}
-            </p>
-            {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
-            {change && (
-              <span
-                className={`text-xs font-medium ${
-                  change > 0 ? "text-green-600" : "text-red-600"
-                }`}
-              >
-                {change > 0 ? "↑" : "↓"} {Math.abs(change)}% from last week
-              </span>
-            )}
-          </div>
-          <div className={`p-3 rounded-xl ${color} shadow-lg`}>
-            <span className="text-2xl">{icon}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const ActivityItem = ({ activity }) => (
-    <div className="flex items-center space-x-3 py-3 hover:bg-gray-50 rounded-lg px-2 transition-colors duration-200">
-      <div
-        className={`w-2 h-2 rounded-full ${
-          activity.type === "user"
-            ? "bg-blue-500"
-            : activity.type === "system"
-            ? "bg-green-500"
-            : activity.type === "order"
-            ? "bg-purple-500"
-            : "bg-gray-500"
-        }`}
-      ></div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 truncate">
-          {activity.action}
-        </p>
-        <p className="text-xs text-gray-500">{activity.time}</p>
-      </div>
-    </div>
-  );
-
-  const QuickAction = ({ icon, label, onClick, color }) => (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center justify-center p-4 rounded-xl border border-gray-100 hover:shadow-md transition-all duration-200 ${color} hover:scale-105`}
-    >
-      <span className="text-2xl mb-2">{icon}</span>
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-    </button>
-  );
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex">
-      {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      {/* Main content */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200 sticky top-0 z-40">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+        {/* Mobile topbar */}
+        <div className="lg:hidden">
+          <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm px-4 py-3 shadow-sm border-b border-white/20">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="text-slate-600 hover:text-slate-800 p-2 rounded-lg hover:bg-white/50"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                </svg>
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  Dashboard
-                </h1>
-                <p className="text-sm text-gray-600">
-                  Welcome back, {user?.name}!
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="hidden md:flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-full">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-blue-700">
-                  System Online
-                </span>
-              </div>
-
-              <div className="flex items-center space-x-3 bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                  {user?.name?.charAt(0).toUpperCase()}
-                </div>
-                <div className="hidden sm:block">
-                  <p className="text-sm font-medium text-gray-900">
-                    {user?.name}
-                  </p>
-                  <p className="text-xs text-gray-500 capitalize">
-                    {user?.role}
-                  </p>
-                </div>
-              </div>
-            </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+            <h1 className="text-lg font-semibold text-slate-800">Dashboard</h1>
+            <div className="w-9" />
           </div>
-        </header>
+        </div>
 
-        {/* Main Content */}
         <main className="flex-1 p-6 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-8">
-            {/* Welcome Section */}
-            <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl p-8 text-white shadow-xl">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h2 className="text-3xl font-bold mb-2">
-                    Good morning, {user?.name}! 👋
-                  </h2>
-                  <p className="text-blue-100 text-lg">
-                    {user?.role === "admin" &&
-                      "Monitor your system and manage users efficiently."}
-                    {user?.role === "employee" &&
-                      "Track your production and complete today's tasks."}
-                    {user?.role === "buyer" &&
-                      "Manage your orders and explore new products."}
+            {/* Role-aware header */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-800 rounded-2xl p-8 mb-8 text-white">
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-16 -translate-y-16" />
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white rounded-full translate-x-12 -translate-y-12" />
+                <div className="absolute bottom-0 left-1/4 w-20 h-20 bg-white rounded-full translate-y-10" />
+                <div className="absolute bottom-0 right-1/3 w-16 h-16 bg-white rounded-full translate-y-8" />
+              </div>
+
+              <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div className="flex-1">
+                  <div className="flex items-center mb-3">
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
+                      <span className="text-2xl">{meta.icon}</span>
+                    </div>
+                    <div>
+                      <h1 className="text-3xl font-bold tracking-tight">
+                        {meta.title}
+                      </h1>
+                      <p className="text-emerald-100 text-lg">
+                        {meta.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-slate-300 max-w-2xl">
+                    Use the quick modules below to jump into your daily
+                    workflow.
                   </p>
                 </div>
-                <div className="mt-4 lg:mt-0">
-                  <div className="flex space-x-3">
-                    <button className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105">
-                      Quick Start
-                    </button>
-                    <button className="bg-white text-blue-600 hover:bg-blue-50 px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105">
-                      View Reports
-                    </button>
+
+                <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-2">
+                  <div className="text-sm">Signed in as</div>
+                  <div className="text-lg font-semibold capitalize">
+                    {user?.role}
                   </div>
                 </div>
               </div>
+
+              {/* Top shortcuts per role */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-8">
+                {isAdmin && (
+                  <>
+                    <HeaderShortcut to="/users" icon="👥" label="Users" />
+                    <HeaderShortcut
+                      to="/feed-management"
+                      icon="🌾"
+                      label="Feed Stock"
+                    />
+                    <HeaderShortcut to="/tickets" icon="🎟️" label="Inquiries" />
+                    <HeaderShortcut
+                      to="/production"
+                      icon="🥚"
+                      label="Production"
+                    />
+                    <HeaderShortcut
+                      to="/orders"
+                      icon="📦"
+                      label="Buyer Orders"
+                    />
+                    <HeaderShortcut to="/reports" icon="📊" label="Analytics" />
+                  </>
+                )}
+
+                {isHR && (
+                  <>
+                    <HeaderShortcut
+                      to="/attendance"
+                      icon="🕒"
+                      label="Attendance"
+                    />
+                    <HeaderShortcut to="/leaves" icon="🏖️" label="Leaves" />
+                    <HeaderShortcut to="/users" icon="👥" label="Users" />
+                    <HeaderShortcut to="/tickets" icon="🎟️" label="Inquiries" />
+                  </>
+                )}
+
+                {isBuyer && (
+                  <>
+                    <HeaderShortcut to="/orders" icon="🛒" label="My Orders" />
+                    <HeaderShortcut
+                      to="/inquiry"
+                      icon="🎟️"
+                      label="My Inquiries"
+                    />
+                    <HeaderShortcut
+                      to="/production"
+                      icon="🥚"
+                      label="Production (Availability)"
+                    />
+                  </>
+                )}
+
+                {isEmployee && (
+                  <>
+                    <HeaderShortcut
+                      to="/production"
+                      icon="🥚"
+                      label="Record Production"
+                    />
+                    <HeaderShortcut to="/feed" icon="🌾" label="Feed Issue" />
+                    <HeaderShortcut
+                      to="/tickets"
+                      icon="🎟️"
+                      label="Raise Inquiry"
+                    />
+                  </>
+                )}
+              </div>
             </div>
 
-            {/* Stats Grid */}
+            {/* KPI cards per role */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {/* Role Card */}
               <StatCard
-                title="Your Role"
+                title="Role"
                 value={user?.role}
                 icon="👤"
-                color="bg-gradient-to-br from-blue-100 to-blue-200"
-                subtitle="Account type"
+                color="from-blue-100 to-blue-200"
+                loading={loading}
               />
 
-              {/* Role-specific Stats */}
-              {user?.role === "admin" && (
+              {isAdmin && (
                 <>
                   <StatCard
-                    title="Total Users"
-                    value={stats.totalUsers.toLocaleString()}
-                    change={2.5}
+                    title="Users"
+                    value={totalUsers}
                     icon="👥"
-                    color="bg-gradient-to-br from-green-100 to-green-200"
-                    subtitle="Active accounts"
+                    color="from-emerald-100 to-emerald-200"
+                    loading={loading}
                   />
                   <StatCard
-                    title="System Status"
-                    value={stats.systemStatus}
-                    icon="⚙️"
-                    color="bg-gradient-to-br from-yellow-100 to-yellow-200"
-                    subtitle="All systems operational"
+                    title="Tickets (All)"
+                    value={totalTickets}
+                    icon="🎟️"
+                    color="from-yellow-100 to-yellow-200"
+                    loading={loading}
                   />
                   <StatCard
-                    title="Server Load"
-                    value="24%"
-                    change={-5}
-                    icon="📊"
-                    color="bg-gradient-to-br from-purple-100 to-purple-200"
-                    subtitle="Optimal performance"
+                    title="Feed Items"
+                    value={totalFeedItems}
+                    icon="🌾"
+                    color="from-purple-100 to-purple-200"
+                    loading={loading}
                   />
-                </>
-              )}
-
-              {user?.role === "employee" && (
-                <>
                   <StatCard
-                    title="Today's Production"
-                    value={stats.todayProduction.toLocaleString()}
-                    change={8.3}
+                    title="Feed Qty"
+                    value={`${totalFeedQty} kg`}
+                    icon="📦"
+                    color="from-lime-100 to-lime-200"
+                    loading={loading}
+                  />
+                  <StatCard
+                    title="Eggs Today"
+                    value={stats.eggToday}
                     icon="🥚"
-                    color="bg-gradient-to-br from-green-100 to-green-200"
-                    subtitle="75% of daily target"
+                    color="from-rose-100 to-rose-200"
+                    loading={loading}
                   />
                   <StatCard
-                    title="Tasks Completed"
-                    value={stats.tasksCompleted}
-                    change={12}
-                    icon="✅"
-                    color="bg-gradient-to-br from-blue-100 to-blue-200"
-                    subtitle="8/10 tasks done"
-                  />
-                  <StatCard
-                    title="Quality Score"
-                    value="98.5%"
-                    change={0.5}
-                    icon="⭐"
-                    color="bg-gradient-to-br from-yellow-100 to-yellow-200"
-                    subtitle="Excellent work"
+                    title="Buyer Orders"
+                    value={stats.buyerOrders}
+                    icon="🧾"
+                    color="from-cyan-100 to-cyan-200"
+                    loading={loading}
                   />
                 </>
               )}
 
-              {user?.role === "buyer" && (
+              {isHR && (
                 <>
                   <StatCard
-                    title="Orders Placed"
-                    value={stats.ordersPlaced}
-                    change={15}
-                    icon="🛒"
-                    color="bg-gradient-to-br from-green-100 to-green-200"
-                    subtitle="3 pending orders"
+                    title="Users"
+                    value={totalUsers}
+                    icon="👥"
+                    color="from-emerald-100 to-emerald-200"
+                    loading={loading}
                   />
                   <StatCard
-                    title="Total Spent"
-                    value={`$${stats.totalRevenue.toLocaleString()}`}
-                    change={-2}
-                    icon="💰"
-                    color="bg-gradient-to-br from-blue-100 to-blue-200"
-                    subtitle="This month"
+                    title="Attendance (Today)"
+                    value={`${stats.attendanceToday}%`}
+                    icon="🕒"
+                    color="from-indigo-100 to-indigo-200"
+                    loading={loading}
                   />
                   <StatCard
-                    title="Savings"
-                    value="$1,240"
-                    change={8}
-                    icon="🎯"
-                    color="bg-gradient-to-br from-purple-100 to-purple-200"
-                    subtitle="Loyalty discounts"
+                    title="Pending Leaves"
+                    value={stats.leavesPending}
+                    icon="🏖️"
+                    color="from-yellow-100 to-yellow-200"
+                    loading={loading}
+                  />
+                  <StatCard
+                    title="Open Tickets"
+                    value={stats.ticketsOpen}
+                    icon="🎟️"
+                    color="from-rose-100 to-rose-200"
+                    loading={loading}
+                  />
+                </>
+              )}
+
+              {isBuyer && (
+                <>
+                  <StatCard
+                    title="My Orders"
+                    value={stats.buyerOrders}
+                    icon="🧾"
+                    color="from-emerald-100 to-emerald-200"
+                    loading={loading}
+                  />
+                  <StatCard
+                    title="Pending"
+                    value={stats.buyerPending}
+                    icon="⏳"
+                    color="from-yellow-100 to-yellow-200"
+                    loading={loading}
+                  />
+                  <StatCard
+                    title="This Month Eggs"
+                    value={stats.eggThisMonth.toLocaleString()}
+                    icon="🥚"
+                    color="from-purple-100 to-purple-200"
+                    loading={loading}
+                  />
+                  <StatCard
+                    title="My Tickets (All)"
+                    value={myTicketsCount}
+                    icon="🎟️"
+                    color="from-pink-100 to-pink-200"
+                    loading={loading}
+                  />
+                </>
+              )}
+
+              {isEmployee && (
+                <>
+                  <StatCard
+                    title="Eggs Today"
+                    value={stats.eggToday}
+                    icon="🥚"
+                    color="from-emerald-100 to-emerald-200"
+                    loading={loading}
+                  />
+                  <StatCard
+                    title="Open Inquiries"
+                    value={stats.ticketsOpen}
+                    icon="🎟️"
+                    color="from-rose-100 to-rose-200"
+                    loading={loading}
                   />
                 </>
               )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Recent Activity */}
-              <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Recent Activity
-                    </h3>
-                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                      View All
-                    </button>
-                  </div>
-                  <div className="space-y-1">
-                    {recentActivity.map((activity) => (
-                      <ActivityItem key={activity.id} activity={activity} />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                    Quick Actions
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {user?.role === "admin" && (
-                      <>
-                        <QuickAction
-                          icon="👥"
-                          label="Manage Users"
-                          color="hover:bg-blue-50"
-                        />
-                        <QuickAction
-                          icon="📊"
-                          label="Analytics"
-                          color="hover:bg-green-50"
-                        />
-                        <QuickAction
-                          icon="⚙️"
-                          label="Settings"
-                          color="hover:bg-yellow-50"
-                        />
-                        <QuickAction
-                          icon="🔒"
-                          label="Security"
-                          color="hover:bg-red-50"
-                        />
-                      </>
-                    )}
-                    {user?.role === "employee" && (
-                      <>
-                        <QuickAction
-                          icon="📝"
-                          label="New Task"
-                          color="hover:bg-blue-50"
-                        />
-                        <QuickAction
-                          icon="📈"
-                          label="Production"
-                          color="hover:bg-green-50"
-                        />
-                        <QuickAction
-                          icon="✅"
-                          label="Reports"
-                          color="hover:bg-yellow-50"
-                        />
-                        <QuickAction
-                          icon="🕒"
-                          label="Time Track"
-                          color="hover:bg-purple-50"
-                        />
-                      </>
-                    )}
-                    {user?.role === "buyer" && (
-                      <>
-                        <QuickAction
-                          icon="🛒"
-                          label="New Order"
-                          color="hover:bg-blue-50"
-                        />
-                        <QuickAction
-                          icon="📦"
-                          label="Track Order"
-                          color="hover:bg-green-50"
-                        />
-                        <QuickAction
-                          icon="💳"
-                          label="Payment"
-                          color="hover:bg-yellow-50"
-                        />
-                        <QuickAction
-                          icon="👤"
-                          label="Profile"
-                          color="hover:bg-purple-50"
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
+            {/* Recent activity */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Recent Activity
+                </h3>
+                <Link
+                  to={isAdmin ? "/reports" : "#"}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  View All
+                </Link>
               </div>
-
-              {/* Right Sidebar */}
-              <div className="space-y-6">
-                {/* Profile Summary */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Profile Summary
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Member since
-                      </span>
-                      <span className="text-sm font-medium">Jan 2024</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Status</span>
-                      <span className="text-sm font-medium text-green-600">
-                        Active
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Last login</span>
-                      <span className="text-sm font-medium">2 hours ago</span>
-                    </div>
+              <div className="divide-y divide-gray-100">
+                {recent.map((r) => (
+                  <div
+                    key={r.id}
+                    className="py-3 flex items-center justify-between"
+                  >
+                    <div className="text-sm text-gray-800">{r.text}</div>
+                    <div className="text-xs text-gray-500">{r.when}</div>
                   </div>
-                </div>
-
-                {/* Notifications */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Notifications
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm font-medium text-blue-900">
-                        System update available
-                      </p>
-                      <p className="text-xs text-blue-600">
-                        Update to version 2.1
-                      </p>
-                    </div>
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <p className="text-sm font-medium text-green-900">
-                        New features available
-                      </p>
-                      <p className="text-xs text-green-600">
-                        Check out what's new
-                      </p>
-                    </div>
+                ))}
+                {recent.length === 0 && (
+                  <div className="text-sm text-gray-400 py-6">
+                    No recent updates
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -539,3 +559,47 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+/* ------------- small UI helpers ------------- */
+function HeaderShortcut({ to, icon, label }) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center justify-between bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all"
+    >
+      <div className="flex items-center">
+        <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center mr-3">
+          {icon}
+        </div>
+        <div className="font-medium">{label}</div>
+      </div>
+      <span>›</span>
+    </Link>
+  );
+}
+
+function StatCard({ title, value, icon, color, loading }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+      <div className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
+            <p className="text-2xl font-bold text-gray-900 mb-1">
+              {loading ? (
+                <div className="h-7 w-24 bg-gray-200 rounded animate-pulse" />
+              ) : (
+                value
+              )}
+            </p>
+          </div>
+          <div
+            className={`p-3 rounded-xl bg-gradient-to-br ${color} shadow-lg`}
+          >
+            <span className="text-2xl">{icon}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
