@@ -22,7 +22,6 @@ const Sidebar = ({ isOpen, onClose }) => {
       ? [{ name: "Ticket Management", href: "/tickets", icon: "📨" }]
       : []),
 
-    // Buyer-only link: Inquiry
     ...(user?.role === "buyer"
       ? [{ name: "Inquiry", href: "/inquiry", icon: "📨" }]
       : []),

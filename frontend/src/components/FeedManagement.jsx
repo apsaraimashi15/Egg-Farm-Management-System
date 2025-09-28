@@ -598,6 +598,8 @@ const FeedManagement = () => {
               options={feedNames}
             />
             <NumberInput
+              type="number"
+              required
               label="Quantity"
               min="0"
               step="1"
@@ -607,6 +609,8 @@ const FeedManagement = () => {
               }
             />
             <NumberInput
+              type="number"
+              required
               label="Unit Price"
               min="0"
               step="0.01"
@@ -623,6 +627,7 @@ const FeedManagement = () => {
               }
             />
             <DateInput
+              redquired
               label="Expiry Date"
               value={restockForm.expiryDate}
               onChange={(e) =>
@@ -630,6 +635,7 @@ const FeedManagement = () => {
               }
             />
             <TextArea
+              type="text"
               label="Note"
               rows={3}
               value={restockForm.note}

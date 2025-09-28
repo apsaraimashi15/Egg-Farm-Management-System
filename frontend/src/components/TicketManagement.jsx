@@ -65,10 +65,9 @@ const TicketManagement = ({ mode = "admin" }) => {
       if (priority) params.priority = priority;
       if (category) params.category = category;
       if (ticketNo) params.ticketNo = ticketNo;
-      if (buyerView) params.mine = "true"; // backend should respect this OR ignore (and use req.user)
+      if (buyerView) params.mine = "true";
 
       const res = await axiosClient.get("/api/tickets", { params });
-      // backend should already return only-own tickets for buyers; this is an extra guard:
       const list = res.data.items || res.data || [];
       setTickets(
         buyerView
@@ -116,7 +115,6 @@ const TicketManagement = ({ mode = "admin" }) => {
     try {
       setModalLoading(true);
       if (editing) {
-        // buyer can edit only when status=open → backend must enforce; front-end guard too:
         if (buyerView && editing.status !== "open") {
           alert("You can edit only when status is OPEN.");
           return;
@@ -178,25 +176,19 @@ const TicketManagement = ({ mode = "admin" }) => {
         address: COMPANY?.address || "",
       };
       const _buyerView = !!buyerView;
-      const _status = status || "";
-      const _priority = priority || "";
-      const _category = category || "";
-      const _ticketNo = ticketNo || "";
       const _tickets = Array.isArray(tickets) ? tickets : [];
 
       let y = margin;
 
-      // ---------- helpers ----------
       const line = (x1, y1, x2, y2, color = [226, 232, 240]) => {
         pdf.setDrawColor(...color);
         pdf.line(x1, y1, x2, y2);
       };
 
-      // --- ADD inside generateTicketPDF() before you use it ---
       const toDataURL = (url) =>
         new Promise((resolve, reject) => {
           const img = new Image();
-          img.crossOrigin = "anonymous"; // remote URL nam CORS issues nathi wenna
+          img.crossOrigin = "anonymous";
           img.onload = () => {
             const canvas = document.createElement("canvas");
             canvas.width = img.naturalWidth;
@@ -239,37 +231,30 @@ const TicketManagement = ({ mode = "admin" }) => {
         pdf.addPage();
         y = margin;
         drawHeader();
-        y = HEADER_BAND + 6; // start body after the header band
+        y = HEADER_BAND + 6;
       };
 
       const addPageIfNeeded = (needed = 8) => {
         if (y + needed > bottomLimit()) addPage();
       };
 
-      // === inside generateTicketPDF(), after you create `pdf` and before drawHeader() is defined ===
       let logoDataURL = null;
       try {
-        logoDataURL = await toDataURL(logo); // local asset import
-        // If you have a base64 directly, you can do: logoDataURL = YOUR_BASE64_STRING;
+        logoDataURL = await toDataURL(logo);
       } catch (e) {
         console.warn("Logo load failed:", e);
       }
 
       const drawHeader = () => {
-        // band
         pdf.setFillColor(40, 87, 74);
         pdf.rect(0, 0, pageWidth, HEADER_BAND, "F");
 
-        // logo (if available)
         if (logoDataURL) {
-          // x, y, w, h  (mm)
           pdf.addImage(logoDataURL, "PNG", margin, 6, 18, 18);
         }
 
-        // shift text right if logo exists
         const xShift = logoDataURL ? 22 : 0;
 
-        // left: company
         pdf.setTextColor(255, 255, 255);
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(15);
@@ -291,7 +276,6 @@ const TicketManagement = ({ mode = "admin" }) => {
           hy += 4;
         });
 
-        // right: title + time
         const title = _buyerView
           ? "My Tickets Report"
           : "Ticket Management Report";
@@ -353,7 +337,7 @@ const TicketManagement = ({ mode = "admin" }) => {
 
       const drawBarChart = ({
         title,
-        data, // [{label, value}]
+        data,
         labelWidth = 40,
         barHeight = 6,
         gap = 4,
@@ -389,8 +373,7 @@ const TicketManagement = ({ mode = "admin" }) => {
       drawHeader();
       y = HEADER_BAND + 6;
 
-      // ---------- ticket total ----------
-
+      // ---------- ticket totals ----------
       const total = _tickets.length;
       const openCount = _tickets.filter((t) => t.status === "open").length;
       const inprog = _tickets.filter((t) => t.status === "in_progress").length;
@@ -398,7 +381,6 @@ const TicketManagement = ({ mode = "admin" }) => {
       const closed = _tickets.filter((t) => t.status === "closed").length;
 
       section("Ticket Summary");
-
       pdf.text("", margin, y);
       y += 4;
 
@@ -415,9 +397,8 @@ const TicketManagement = ({ mode = "admin" }) => {
       line(margin, y + 2, pageWidth - margin, y + 2);
       y += 6;
 
-      // ---------- SECTION: Ticket Table ----------
+      // ---------- Table ----------
       section("Tickets");
-
       pdf.text("", margin, y);
       y += 4;
 
@@ -431,7 +412,6 @@ const TicketManagement = ({ mode = "admin" }) => {
         : [8, 65, 20, 20, 26, 43]; // = 182
 
       const drawTableHeaderRepeatable = () => drawTableHeader(headers, widths);
-
       drawTableHeaderRepeatable();
       pdf.text("", margin, y);
       y += 4;
@@ -461,7 +441,6 @@ const TicketManagement = ({ mode = "admin" }) => {
         const maxLines = Math.max(...colLines.map((c) => c.totalLines));
         const rowHeight = Math.max(8, maxLines * LINE_H + 3);
 
-        // page-break BEFORE drawing row
         if (y + rowHeight > bottomLimit()) {
           addPage();
           drawTableHeaderRepeatable();
@@ -479,7 +458,6 @@ const TicketManagement = ({ mode = "admin" }) => {
               pdf.text(ln, x + CELL_PAD_X, ty);
               ty += LINE_H;
             });
-            // ticket no (muted on one line)
             if (c.ticketNoLines.length) {
               pdf.setFontSize(8);
               muted(() => {
@@ -500,7 +478,6 @@ const TicketManagement = ({ mode = "admin" }) => {
         });
 
         y += rowHeight;
-        // row divider
         line(
           margin - 1,
           y - 3.6,
@@ -515,7 +492,6 @@ const TicketManagement = ({ mode = "admin" }) => {
         pdf.setTextColor(100, 116, 139);
         pdf.text("No tickets to display for current filters.", margin, y);
         pdf.setTextColor(15, 23, 42);
-        y += LINE_H;
       } else {
         _tickets.forEach((t, idx) => {
           const buyerCell = isAdmin
@@ -531,14 +507,14 @@ const TicketManagement = ({ mode = "admin" }) => {
             t.category || "-",
             (t.priority || "-").toUpperCase(),
             (t.status || "-").replaceAll("_", " "),
-            safeDate(t.createdAt),
+            t.createdAt ? new Date(t.createdAt).toLocaleString() : "-",
           ];
 
           const restBuyer = [
             t.category || "-",
             (t.priority || "-").toUpperCase(),
             (t.status || "-").replaceAll("_", " "),
-            safeDate(t.createdAt),
+            t.createdAt ? new Date(t.createdAt).toLocaleString() : "-",
           ];
 
           const cells = isAdmin
@@ -548,8 +524,6 @@ const TicketManagement = ({ mode = "admin" }) => {
           drawRow(cells, ticketNoText, isAdmin);
         });
       }
-
-      // ---------- SECTION: Category Summary + Charts ----------
 
       section("Inquiry Categories & Charts");
 
@@ -601,7 +575,6 @@ const TicketManagement = ({ mode = "admin" }) => {
         ],
       });
 
-      // ---------- FOOTER (final page) ----------
       drawFooter();
 
       const fileName = `tickets-${_buyerView ? "mine-" : ""}${new Date()
@@ -700,25 +673,27 @@ const TicketManagement = ({ mode = "admin" }) => {
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={openCreate}
-                    className="inline-flex items-center px-6 py-3 bg-white text-slate-900 font-semibold rounded-xl hover:bg-emerald-50 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                  >
-                    <svg
-                      className="w-5 h-5 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {buyerView && (
+                    <button
+                      onClick={openCreate}
+                      className="inline-flex items-center px-6 py-3 bg-white text-slate-900 font-semibold rounded-xl hover:bg-emerald-50 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
-                    New Ticket
-                  </button>
+                      <svg
+                        className="w-5 h-5 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
+                      </svg>
+                      New Ticket
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -850,8 +825,9 @@ const TicketManagement = ({ mode = "admin" }) => {
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
                     {tickets.map((t, i) => {
-                      //ticket object array data divided into rows using map function t is ticket object i is index number
                       const disableBuyerEdit = buyerView && t.status !== "open";
+                      const disableAdminDelete =
+                        canAdmin && t.status !== "open";
                       return (
                         <tr key={t._id} className="hover:bg-slate-50">
                           <Td>{i + 1}</Td>
@@ -885,20 +861,40 @@ const TicketManagement = ({ mode = "admin" }) => {
                               }
                             />
                           </Td>
+
+                          {/* ✅ Status cell: admin/hr can change with a select, others see a badge */}
                           <Td>
-                            <Badge
-                              text={t.status?.replace("_", " ")}
-                              tone={
-                                t.status === "open"
-                                  ? "emerald"
-                                  : t.status === "in_progress"
-                                  ? "blue"
-                                  : t.status === "resolved"
-                                  ? "violet"
-                                  : "slate"
-                              }
-                            />
+                            {canAdmin ? (
+                              <select
+                                className="text-xs border-slate-300 rounded-md px-2 py-1"
+                                value={t.status}
+                                onChange={(e) =>
+                                  changeStatus(t._id, e.target.value)
+                                }
+                                title="Change status"
+                              >
+                                {STATUSES.map((s) => (
+                                  <option key={s} value={s}>
+                                    {s.replace("_", " ")}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <Badge
+                                text={t.status?.replace("_", " ")}
+                                tone={
+                                  t.status === "open"
+                                    ? "emerald"
+                                    : t.status === "in_progress"
+                                    ? "blue"
+                                    : t.status === "resolved"
+                                    ? "violet"
+                                    : "slate"
+                                }
+                              />
+                            )}
                           </Td>
+
                           <Td>{new Date(t.createdAt).toLocaleString()}</Td>
                           <Td right>
                             <div className="flex items-center justify-end gap-2">
@@ -913,61 +909,42 @@ const TicketManagement = ({ mode = "admin" }) => {
                                 👁️
                               </button>
 
-                              {/* Edit (buyer: only when open) */}
-                              <button
-                                disabled={disableBuyerEdit}
-                                className={`p-1 rounded-md ${
-                                  disableBuyerEdit
-                                    ? "text-slate-300"
-                                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-                                }`}
-                                title={
-                                  disableBuyerEdit
-                                    ? "You can edit only when status is OPEN"
-                                    : "Edit"
-                                }
-                                onClick={() => openEdit(t)}
-                              >
-                                ✏️
-                              </button>
+                              {buyerView && (
+                                <button
+                                  disabled={disableBuyerEdit}
+                                  className={`p-1 rounded-md ${
+                                    disableBuyerEdit
+                                      ? "text-slate-300"
+                                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                                  }`}
+                                  title={
+                                    disableBuyerEdit
+                                      ? "You can edit only when status is OPEN"
+                                      : "Edit"
+                                  }
+                                  onClick={() => openEdit(t)}
+                                >
+                                  ✏️
+                                </button>
+                              )}
 
-                              {/* Status change + delete hidden for buyers */}
-                              {!buyerView && (
-                                <>
-                                  <select
-                                    className="text-xs border-slate-300 rounded-md px-2 py-1"
-                                    value={t.status}
-                                    onChange={(e) =>
-                                      changeStatus(t._id, e.target.value)
-                                    }
-                                    disabled={!canAdmin}
-                                    title={
-                                      canAdmin
-                                        ? "Change status"
-                                        : "Only Admin/HR"
-                                    }
-                                  >
-                                    {STATUSES.map((s) => (
-                                      <option key={s} value={s}>
-                                        {s.replace("_", " ")}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <button
-                                    className={`p-1 rounded-md ${
-                                      canAdmin
-                                        ? "text-red-400 hover:text-red-600 hover:bg-red-50"
-                                        : "text-slate-300"
-                                    }`}
-                                    disabled={!canAdmin}
-                                    title={
-                                      canAdmin ? "Delete" : "Only Admin/HR"
-                                    }
-                                    onClick={() => remove(t._id)}
-                                  >
-                                    🗑️
-                                  </button>
-                                </>
+                              {canAdmin && (
+                                <button
+                                  disabled={disableAdminDelete}
+                                  className={`p-1 rounded-md ${
+                                    disableAdminDelete
+                                      ? "text-slate-300"
+                                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                                  }`}
+                                  title={
+                                    disableAdminDelete
+                                      ? "You can delete only when status is OPEN"
+                                      : "Delete"
+                                  }
+                                  onClick={() => remove(t._id)}
+                                >
+                                  🗑️
+                                </button>
                               )}
                             </div>
                           </Td>
@@ -997,6 +974,9 @@ const TicketManagement = ({ mode = "admin" }) => {
                   <div className="space-y-4">
                     <Labeled label="Subject">
                       <input
+                        type="text"
+                        minLength={10}
+                        maxLength={100}
                         value={form.subject}
                         onChange={(e) =>
                           setForm({ ...form, subject: e.target.value })
@@ -1008,6 +988,8 @@ const TicketManagement = ({ mode = "admin" }) => {
                     </Labeled>
                     <Labeled label="Message">
                       <textarea
+                        minLength={10}
+                        maxLength={5000}
                         rows={5}
                         value={form.message}
                         onChange={(e) =>
@@ -1021,6 +1003,7 @@ const TicketManagement = ({ mode = "admin" }) => {
                     <div className="grid grid-cols-2 gap-4">
                       <Labeled label="Category">
                         <select
+                          required
                           value={form.category}
                           onChange={(e) =>
                             setForm({ ...form, category: e.target.value })
@@ -1036,6 +1019,7 @@ const TicketManagement = ({ mode = "admin" }) => {
                       </Labeled>
                       <Labeled label="Priority">
                         <select
+                          required
                           value={form.priority}
                           onChange={(e) =>
                             setForm({ ...form, priority: e.target.value })
