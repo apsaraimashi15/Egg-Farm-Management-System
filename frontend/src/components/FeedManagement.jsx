@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Sidebar from "./Sidebar";
 import { useAuth } from "../context/AuthContext";
+import logo from "../assets/logo.png";
 
 const API_BASE = "http://localhost:5000";
 
@@ -113,6 +114,335 @@ const FeedManagement = () => {
       console.error(e);
     } finally {
       setLoadingMoves(false);
+    }
+  };
+
+  // ----------------- PDF: Generate Feed Report -----------------
+  const generateFeedPDF = async () => {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 14;
+      const usableWidth = pageWidth - margin * 2;
+      const HEADER_BAND = 37;
+      const FOOTER_SPACE = 14;
+      const CELL_PAD_X = 2;
+      const LINE_H = 4.2;
+
+      const bottomLimit = () => pageHeight - FOOTER_SPACE;
+      const line = (x1, y1, x2, y2, color = [226, 232, 240]) => {
+        pdf.setDrawColor(...color);
+        pdf.line(x1, y1, x2, y2);
+      };
+      const muted = (cb) => {
+        pdf.setTextColor(71, 85, 105);
+        cb();
+        pdf.setTextColor(15, 23, 42);
+      };
+      const split = (text, maxW) => {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        return pdf.splitTextToSize(
+          String(text ?? ""),
+          Math.max(2, maxW - CELL_PAD_X * 2)
+        );
+      };
+
+      const toDataURL = (url) =>
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL("image/png"));
+          };
+          img.onerror = reject;
+          img.src = url;
+        });
+
+      const drawFooter = () => {
+        const footerY = pageHeight - 10;
+        line(
+          margin,
+          footerY - 4,
+          pageWidth - margin,
+          footerY - 4,
+          [203, 213, 225]
+        );
+        pdf.setTextColor(100, 116, 139);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.text("Egg Farm Management System — Feed Report", margin, footerY);
+        const currentPage = pdf.internal.getNumberOfPages();
+        pdf.text(`Page ${currentPage}`, pageWidth - margin, footerY, {
+          align: "right",
+        });
+      };
+
+      let y = margin;
+
+      let logoDataURL = null;
+      try {
+        logoDataURL = await toDataURL(logo);
+      } catch (e) {
+        /* ignore */
+      }
+
+      const drawHeader = () => {
+        pdf.setFillColor(40, 87, 74);
+        pdf.rect(0, 0, pageWidth, HEADER_BAND, "F");
+        if (logoDataURL) pdf.addImage(logoDataURL, "PNG", margin, 6, 18, 18);
+        const xShift = logoDataURL ? 22 : 0;
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(15);
+        pdf.text(COMPANY.name, margin + xShift, 13);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        let hy = 20;
+        [
+          COMPANY.email && `Email: ${COMPANY.email}`,
+          COMPANY.phone && `Phone: ${COMPANY.phone}`,
+          COMPANY.website && `Website: ${COMPANY.website}`,
+          COMPANY.address && `Address: ${COMPANY.address}`,
+        ]
+          .filter(Boolean)
+          .forEach((s) => {
+            pdf.text(s, margin + xShift, hy);
+            hy += 4;
+          });
+        const when = new Date().toLocaleString();
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11);
+        pdf.text("Feed Management Report", pageWidth - margin, 12, {
+          align: "right",
+        });
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        pdf.text(`Generated: ${when}`, pageWidth - margin, 18, {
+          align: "right",
+        });
+      };
+
+      const addPage = () => {
+        drawFooter();
+        pdf.addPage();
+        y = margin;
+        drawHeader();
+        y = HEADER_BAND + 6;
+      };
+      const addPageIfNeeded = (needed = 8) => {
+        if (y + needed > bottomLimit()) addPage();
+      };
+      const section = (label) => {
+        addPageIfNeeded(12);
+        pdf.setFillColor(16, 185, 129);
+        pdf.roundedRect(margin, y, 4, 6, 1, 1, "F");
+        pdf.setTextColor(15, 23, 42);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11);
+        pdf.text(label, margin + 8, y + 5);
+        y += 10;
+      };
+      const drawTableHeader = (headers, widths) => {
+        addPageIfNeeded(12);
+        const tableWidth = widths.reduce((a, b) => a + b, 0);
+        pdf.setFillColor(40, 87, 74);
+        pdf.rect(margin - 1, y - 5, tableWidth + 2, 9, "F");
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(10);
+        let x = margin;
+        headers.forEach((h, i) => {
+          pdf.text(h, x + CELL_PAD_X, y);
+          x += widths[i];
+        });
+        y += 6;
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(15, 23, 42);
+        pdf.setFontSize(9);
+      };
+
+      const drawRow = (cells, widths) => {
+        const colLines = cells.map((text, i) => split(text, widths[i]));
+        const maxLines = Math.max(...colLines.map((ls) => ls.length));
+        const rowHeight = Math.max(8, maxLines * LINE_H + 3);
+        if (y + rowHeight > bottomLimit()) {
+          addPage();
+          drawTableHeader(lastHeaders, widths);
+        }
+        let x = margin;
+        colLines.forEach((ls, i) => {
+          let ty = y;
+          ls.forEach((ln) => {
+            pdf.text(ln, x + CELL_PAD_X, ty);
+            ty += LINE_H;
+          });
+          x += widths[i];
+        });
+        y += rowHeight;
+        line(
+          margin - 1,
+          y - 3.6,
+          margin - 1 + widths.reduce((a, b) => a + b, 0) + 2,
+          y - 3.6,
+          [241, 245, 249]
+        );
+      };
+
+      const drawBarChart = ({
+        title,
+        data,
+        labelWidth = 40,
+        barHeight = 6,
+        gap = 4,
+      }) => {
+        const chartW = Math.min(90, usableWidth - labelWidth - 8);
+        const needed = (barHeight + gap) * data.length + 18;
+        addPageIfNeeded(needed);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        pdf.text(title, margin, y);
+        y += 4;
+        const maxVal = Math.max(1, ...data.map((d) => d.value));
+        data.forEach((d) => {
+          muted(() => pdf.text(String(d.label), margin, y + barHeight - 1));
+          const w = Math.round((d.value / maxVal) * chartW);
+          pdf.setFillColor(40, 87, 74);
+          pdf.rect(margin + labelWidth, y, w, barHeight, "F");
+          pdf.text(
+            String(d.value),
+            margin + labelWidth + w + 2,
+            y + barHeight - 1
+          );
+          y += barHeight + gap;
+        });
+        y += 2;
+      };
+
+      // ---------- START DRAW ----------
+      drawHeader();
+      y = HEADER_BAND + 6;
+
+      // Quick stats
+      const sumQty = totals.reduce((a, b) => a + (b.quantity || 0), 0);
+      const sumValue = totals.reduce((a, b) => a + (b.totalCost || 0), 0);
+      section("Summary");
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      const summary = `Feed Items: ${
+        totals.length
+      }   |   Total Quantity: ${sumQty}   |   Total Value: ${formatMoney(
+        sumValue
+      )}`;
+      const sLines = pdf.splitTextToSize(summary, usableWidth);
+      sLines.forEach((ln) => {
+        pdf.text(ln, margin, y);
+        y += LINE_H;
+      });
+      line(margin, y + 2, pageWidth - margin, y + 2);
+      y += 6;
+
+      section("Stock Totals");
+      pdf.text("", margin, y);
+      y += 4;
+      let lastHeaders = ["Feed", "Quantity", "Avg Unit Price", "Total Value"];
+      let widths = [70, 30, 40, 42];
+      drawTableHeader(lastHeaders, widths);
+      if (totals.length === 0) {
+        pdf.setTextColor(100, 116, 139);
+        pdf.text("No stock yet.", margin, y);
+        pdf.setTextColor(15, 23, 42);
+        y += 8;
+      } else {
+        totals.forEach((t) => {
+          pdf.text("", margin, y);
+          y += 2;
+          drawRow(
+            [
+              String(t.feedName ?? "-"),
+              String(t.quantity ?? 0),
+              String(formatMoney(t.avgUnitPrice ?? 0)),
+              String(formatMoney(t.totalCost ?? 0)),
+            ],
+            widths
+          );
+        });
+      }
+
+      // Movement Log table
+      section("Movement Log");
+      pdf.text("", margin, y);
+      y += 4;
+      lastHeaders = [
+        "Date",
+        "Type",
+        "Feed",
+        "Qty",
+        "Batch",
+        "Employee",
+        "Note",
+      ];
+      widths = [38, 20, 32, 16, 24, 28, 24]; // = 182
+      drawTableHeader(lastHeaders, widths);
+      if (movements.length === 0) {
+        pdf.setTextColor(100, 116, 139);
+        pdf.text("No movements match current filters.", margin, y);
+        pdf.setTextColor(15, 23, 42);
+        y += 8;
+      } else {
+        movements.forEach((m) => {
+          pdf.text("", margin, y);
+          y += 2;
+          const date = new Date(m.createdAt || m.date).toLocaleString();
+          const emp = m.employeeId
+            ? m.employeeId.name || m.employeeId.email || String(m.employeeId)
+            : "-";
+          drawRow(
+            [
+              String(date),
+              String(m.type ?? "-"),
+              String(m.feedName ?? "-"),
+              String(m.qty ?? 0),
+              String(m.batchNo ?? "-"),
+              String(emp),
+              String(m.note ?? "-"),
+            ],
+            widths
+          );
+        });
+      }
+
+      pdf.text("", margin, y);
+      y += 8;
+
+      // Tiny chart
+      section("Type Distribution");
+
+      const restock = movements.filter((m) => m.type === "RESTOCK").length;
+      const use = movements.filter((m) => m.type === "USE").length;
+      drawBarChart({
+        title: "",
+        data: [
+          { label: "RESTOCK", value: restock },
+          { label: "USE", value: use },
+        ],
+      });
+
+      drawFooter();
+      const fileName = `feed-report-${new Date()
+        .toISOString()
+        .slice(0, 10)}.pdf`;
+      pdf.save(fileName);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to generate PDF. Please try again.");
     }
   };
 
@@ -379,12 +709,37 @@ const FeedManagement = () => {
             {/* STOCK TOTALS */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
               <div className="px-6 py-4 border-b border-slate-200">
-                <h3 className="text-lg font-semibold text-slate-900">
-                  Stock Totals
-                </h3>
-                <p className="text-sm text-slate-600">
-                  Current on-hand quantities and value by feed.
-                </p>
+                <div className="flex items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Stock Totals
+                    </h3>
+                    <p className="text-sm text-slate-600">
+                      Current on-hand quantities and value by feed.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={generateFeedPDF}
+                    className="inline-flex shrink-0 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"
+                    title="Download PDF report"
+                  >
+                    <svg
+                      className="w-4 h-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    Download PDF
+                  </button>
+                </div>
               </div>
 
               {loadingTotals ? (
@@ -829,6 +1184,14 @@ const FeedManagement = () => {
       )}
     </div>
   );
+};
+
+const COMPANY = {
+  name: "Egg Farm Management",
+  email: "info@egg-farm.lk",
+  phone: "+94 77 123 4567",
+  website: "https://egg-farm.lk",
+  address: "No. 12, Farm Road, Gampaha",
 };
 
 export default FeedManagement;
