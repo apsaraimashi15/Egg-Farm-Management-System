@@ -10,6 +10,14 @@ const Sidebar = ({ isOpen, onClose }) => {
     { name: 'Dashboard', href: '/dashboard', icon: '🏠' },
     ...(user?.role === 'admin' || user?.role === 'hrmanager' ? [
       { name: 'User Management', href: '/users', icon: '👥' }
+    ] : []),
+    ...(user?.role === 'hrmanager' ? [
+      { name: 'Leave Requests', href: '/leave-requests', icon: '📅' },
+      { name: 'Attendance', href: '/attendance', icon: '✅' },
+      { name: 'Reports', href: '/reports', icon: '📊' }
+    ] : []),
+    ...(user?.role === 'employee' ? [
+      { name: 'Leave Form', href: '/leave-form', icon: '📝' }
     ] : [])
   ]
 

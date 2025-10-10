@@ -10,7 +10,7 @@ const registerSchema = yup.object({
   email: yup.string().email('Invalid email').required('Email is required'),
   password: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters'),
   confirmPassword: yup.string().oneOf([yup.ref('password')], 'Passwords must match').required('Confirm password is required'),
-  role: yup.string().oneOf(['employee', 'buyer'], 'Invalid role').required('Role is required')
+  role: yup.string().oneOf(['employee', 'buyer','hrmanager'], 'Invalid role').required('Role is required')
 })
 
 const otpSchema = yup.object({
@@ -177,6 +177,8 @@ const Register = () => {
                         <option value="">Select your role</option>
                         <option value="employee">Employee</option>
                         <option value="buyer">Buyer</option>
+                        <option value="hrmanager">HR Manager</option>
+
                       </select>
                       <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                         <svg className="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

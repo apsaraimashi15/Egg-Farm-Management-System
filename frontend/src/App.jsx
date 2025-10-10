@@ -7,6 +7,10 @@ import Dashboard from './components/Dashboard'
 import UserManagement from './components/UserManagement'
 import ProtectedRoute from './components/ProtectedRoute'
 import './App.css'
+import LeaveRequests from './components/LeaveRequests'
+import LeaveForm from './components/LeaveForm'
+import Attendance from './components/Attendance'
+import Reports from './components/Reports'
 
 const App = () => {
   return (
@@ -26,6 +30,34 @@ const App = () => {
                 <UserManagement />
               </ProtectedRoute>
             } />
+
+            <Route path="/leave-requests" element={
+              <ProtectedRoute roles={['hrmanager']}>
+                <LeaveRequests/>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/leave-form" element={
+              <ProtectedRoute roles={['employee']}>
+                <LeaveForm />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/attendance" element={
+              <ProtectedRoute roles={['hrmanager']}>
+                <Attendance />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/reports" element={
+              <ProtectedRoute roles={['hrmanager']}>
+                <Reports />
+              </ProtectedRoute>
+            } />
+
+            
+
+
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>
