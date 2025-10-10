@@ -9,7 +9,7 @@ import Sidebar from './Sidebar'
 const schema = yup.object({
   startDate: yup.date()
     .required('Start date is required')
-    .min(new Date(), 'Start date cannot be in the past'),
+    .min(new Date(new Date().setHours(0, 0, 0, 0)), 'Start date cannot be in the past'),
   endDate: yup.date()
     .required('End date is required')
     .min(yup.ref('startDate'), 'End date must be after start date'),
@@ -26,10 +26,12 @@ const LeaveForm = () => {
   const [success, setSuccess] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [formLoading, setFormLoading] = useState(false)
+  const today = new Date().toISOString().split('T')[0] // 2025-10-10
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm({
     resolver: yupResolver(schema)
   })
 
@@ -77,9 +79,59 @@ const LeaveForm = () => {
     }
   }
 
+  const onEditSubmit = async (data) => {
+    try {
+      setFormLoading(true)
+      setError('')
+      setSuccess('')
+      const token = localStorage.getItem('token')
+      await axios.put(
+        `http://localhost:5000/api/leaves/${selectedRequest._id}`,
+        {
+          startDate: data.startDate,
+          endDate: data.endDate,
+          reason: data.reason
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setSuccess('Leave request updated successfully')
+      setShowEditModal(false)
+      reset()
+      fetchLeaveRequests()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update leave request')
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  const handleDelete = async (leaveId) => {
+    if (!window.confirm('Are you sure you want to delete this leave request?')) return
+    try {
+      setError('')
+      setSuccess('')
+      const token = localStorage.getItem('token')
+      await axios.delete(`http://localhost:5000/api/leaves/${leaveId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setSuccess('Leave request deleted successfully')
+      fetchLeaveRequests()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete leave request')
+    }
+  }
+
   const viewDetails = (request) => {
     setSelectedRequest(request)
     setShowDetailsModal(true)
+  }
+
+  const editRequest = (request) => {
+    setSelectedRequest(request)
+    setValue('startDate', new Date(request.startDate).toISOString().split('T')[0])
+    setValue('endDate', new Date(request.endDate).toISOString().split('T')[0])
+    setValue('reason', request.reason)
+    setShowEditModal(true)
   }
 
   if (loading) {
@@ -142,11 +194,11 @@ const LeaveForm = () => {
                       </div>
                       <div>
                         <h1 className="text-3xl font-bold tracking-tight">Leave Form</h1>
-                        <p className="text-emerald-100 text-lg">Submit and view your leave requests</p>
+                        <p className="text-emerald-100 text-lg">Submit and manage your leave requests</p>
                       </div>
                     </div>
                     <p className="text-slate-300 max-w-2xl">
-                      Request time off or review your submitted leave requests. Ensure all details are accurate before submission.
+                      Request time off, edit pending requests, or delete them before approval. Ensure all details are accurate before submission.
                     </p>
                   </div>
                 </div>
@@ -186,6 +238,7 @@ const LeaveForm = () => {
                   <input
                     {...register('startDate')}
                     type="date"
+                    min={today}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                   {errors.startDate && <p className="mt-1 text-sm text-red-600">{errors.startDate.message}</p>}
@@ -195,6 +248,7 @@ const LeaveForm = () => {
                   <input
                     {...register('endDate')}
                     type="date"
+                    min={today}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                   {errors.endDate && <p className="mt-1 text-sm text-red-600">{errors.endDate.message}</p>}
@@ -225,7 +279,7 @@ const LeaveForm = () => {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-200">
                 <h3 className="text-lg font-semibold text-slate-900">My Leave Requests</h3>
-                <p className="text-sm text-slate-600 mt-1">View your submitted leave requests</p>
+                <p className="text-sm text-slate-600 mt-1">View, edit, or delete your pending leave requests</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -266,6 +320,28 @@ const LeaveForm = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                           </button>
+                          {request.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => editRequest(request)}
+                                className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors ml-2"
+                                title="Edit request"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDelete(request._id)}
+                                className="text-slate-400 hover:text-red-600 p-1 rounded-md hover:bg-slate-100 transition-colors ml-2"
+                                title="Delete request"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -376,6 +452,74 @@ const LeaveForm = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && selectedRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-2xl p-6 m-4 max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-slate-900">Edit Leave Request</h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit(onEditSubmit)} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+                <input
+                  {...register('startDate')}
+                  type="date"
+                  min={today}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+                {errors.startDate && <p className="mt-1 text-sm text-red-600">{errors.startDate.message}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+                <input
+                  {...register('endDate')}
+                  type="date"
+                  min={today}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+                {errors.endDate && <p className="mt-1 text-sm text-red-600">{errors.endDate.message}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Reason</label>
+                <textarea
+                  {...register('reason')}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  rows="4"
+                  placeholder="Enter the reason for your leave"
+                />
+                {errors.reason && <p className="mt-1 text-sm text-red-600">{errors.reason.message}</p>}
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-200 rounded-lg hover:bg-slate-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                >
+                  {formLoading ? 'Updating...' : 'Update Request'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

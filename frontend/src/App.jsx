@@ -10,6 +10,7 @@ import './App.css'
 import LeaveRequests from './components/LeaveRequests'
 import LeaveForm from './components/LeaveForm'
 import Attendance from './components/Attendance'
+import Reports from './components/Reports'
 
 const App = () => {
   return (
@@ -45,6 +46,12 @@ const App = () => {
             <Route path="/attendance" element={
               <ProtectedRoute roles={['hrmanager']}>
                 <Attendance />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/reports" element={
+              <ProtectedRoute roles={['hrmanager']}>
+                <Reports />
               </ProtectedRoute>
             } />
 

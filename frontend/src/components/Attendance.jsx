@@ -12,9 +12,10 @@ const Attendance = () => {
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filteredRecords, setFilteredRecords] = useState([])
+  const today = new Date().toISOString().split('T')[0] // Set to today's date (2025-10-10)
   const [formData, setFormData] = useState({
     userId: '',
-    date: new Date().toISOString().split('T')[0],
+    date: today,
     status: 'present'
   })
 
@@ -171,7 +172,7 @@ const Attendance = () => {
                       </div>
                     </div>
                     <p className="text-slate-300 max-w-2xl">
-                      Manage employee attendance records, mark daily attendance, and review monthly summaries.
+                      Manage employee attendance records, mark daily attendance for today, and review monthly summaries.
                     </p>
                   </div>
                 </div>
@@ -192,7 +193,7 @@ const Attendance = () => {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
               <div className="px-6 py-4 border-b border-slate-200">
                 <h3 className="text-lg font-semibold text-slate-900">Mark Attendance</h3>
-                <p className="text-sm text-slate-600 mt-1">Select an employee and date to mark attendance</p>
+                <p className="text-sm text-slate-600 mt-1">Select an employee to mark attendance for today ({today})</p>
               </div>
               <div className="p-6">
                 <form onSubmit={handleMarkAttendance} className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -218,8 +219,10 @@ const Attendance = () => {
                       type="date"
                       name="date"
                       value={formData.date}
-                      onChange={handleInputChange}
-                      className="block w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                      min={today}
+                      max={today}
+                      readOnly
+                      className="block w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed"
                     />
                   </div>
                   <div>
