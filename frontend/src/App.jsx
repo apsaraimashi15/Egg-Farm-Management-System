@@ -6,6 +6,10 @@ import Register from './components/Register'
 import Dashboard from './components/Dashboard'
 import UserManagement from './components/UserManagement'
 import ProtectedRoute from './components/ProtectedRoute'
+import EggProductionManagement from './components/EggProductionManagement'
+import EggStockManagement from './components/EggStockManagement'
+import FertilizerManagement from './components/FertilizerManagement'
+import ReportManagement from './components/ReportManagement'
 import './App.css'
 
 const App = () => {
@@ -26,7 +30,35 @@ const App = () => {
                 <UserManagement />
               </ProtectedRoute>
             } />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              path="/egg-production"
+              element={
+                <ProtectedRoute roles={["admin", "employee"]}>
+                  <EggProductionManagement />
+                </ProtectedRoute>
+              } />
+            <Route
+              path="/egg-stock"
+              element={
+                <ProtectedRoute roles={["admin", "employee"]}>
+                  <EggStockManagement />
+                </ProtectedRoute>
+              } />
+            <Route
+              path="/fertilizers"
+              element={
+                <ProtectedRoute roles={["admin", "employee"]}>
+                  <FertilizerManagement />
+            </ProtectedRoute>
+              } />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute roles={["admin", "employee"]}>
+                  <ReportManagement />
+                </ProtectedRoute>
+              } />
+
           </Routes>
         </div>
       </Router>

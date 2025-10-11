@@ -8,9 +8,31 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: '🏠' },
+
     ...(user?.role === 'admin' || user?.role === 'hrmanager' ? [
       { name: 'User Management', href: '/users', icon: '👥' }
-    ] : [])
+    ] : []),
+
+    ...(user?.role === "admin" || user?.role === "employee" ? [
+      { name: "Egg Production", href: "/egg-production", icon: "🥚" }
+    ] : []),
+    
+    ...(user?.role === "admin" || user?.role === "employee" || user?.role === "buyer" ? [
+    { name: "Egg Stock", href: "/egg-stock", icon: "📦" },
+    ] : []),
+
+    ...(user?.role === "admin" || user?.role === "employee" ? [
+      { name: "Fertilizers", href: "/fertilizers", icon: "🌱" }  
+    ] : []),
+    ...(user?.role === "admin" || user?.role === "employee" ? [
+      { name: "Reports", href: "/reports", icon: "📑" }  
+    ] : []),
+
+
+
+
+
+
   ]
 
   const handleLogout = () => {

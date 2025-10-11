@@ -38,6 +38,11 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/eggfarm')
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/egg-production', require('./routes/EggProductionRoutes'));
+app.use('/api/egg-stock',require('./routes/EggStockRoutes'));
+app.use('/api/fertilizers',require('./routes/FertilizerRoutes'));
+app.use('/api/reports',require('./routes/ReportRoutes'));
+app.use('/api/alert',require('./routes/AlertRoutes'));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
