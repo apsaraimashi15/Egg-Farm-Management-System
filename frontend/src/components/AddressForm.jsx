@@ -90,6 +90,17 @@ const AddressForm = ({ address, fieldErrors, onChange, onValidationChange }) => 
     }
   }
 
+  const handleFullNameChange = (e) => {
+    const filteredValue = e.target.value.replace(/[^a-zA-Z\s]/g, '')
+    const syntheticEvent = {
+      target: {
+        name: 'fullName',
+        value: filteredValue
+      }
+    }
+    handleFieldChange(syntheticEvent)
+  }
+
   const handleFieldBlur = (e) => {
     const { name, value } = e.target
     setTouchedFields(prev => ({ ...prev, [name]: true }))
@@ -157,7 +168,7 @@ const AddressForm = ({ address, fieldErrors, onChange, onValidationChange }) => 
               type="text"
               name="fullName"
               value={address.fullName}
-              onChange={handleFieldChange}
+              onChange={handleFullNameChange}
               onBlur={handleFieldBlur}
               className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 ${getFieldClasses('fullName')}`}
               placeholder="Enter your full name"
