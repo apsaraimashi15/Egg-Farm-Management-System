@@ -4,6 +4,20 @@ const router = express.Router();
 const Ticket = require("../models/Ticket");
 const { auth, authorize } = require("../middleware/auth");
 
+// --- Email (Nodemailer) ---
+const nodemailer = require("nodemailer");
+
+const mailer = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: false, // 465ならtrue
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+});
+
+// Pretty-print helper for status labels
+const pretty = (s = "") =>
+  s.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+
 /**
  * CREATE (Buyer only)
  * POST /api/tickets
@@ -56,7 +70,7 @@ router.get("/", auth, async (req, res) => {
     if (req.user.role === "buyer") q.buyerId = req.user._id;
     else if (buyerId) q.buyerId = buyerId; // admin/hr filter
 
-    if (ticketNo) q.ticketNo = ticketNo.toUpperCase();
+    if (ticketNo) q.ticketNo = String(ticketNo).toUpperCase();
     if (status) q.status = status;
     if (category) q.category = category;
     if (priority) q.priority = priority;
@@ -67,7 +81,7 @@ router.get("/", auth, async (req, res) => {
       if (to) q.createdAt.$lte = new Date(to);
     }
 
-    if (search) q.$text = { $search: search }; // need text index on model
+    if (search) q.$text = { $search: search }; // ensure text index on model
 
     const skip = (Number(page) - 1) * Number(limit);
 
@@ -163,6 +177,7 @@ router.patch("/:id", auth, async (req, res) => {
  * UPDATE STATUS (Admin/HR only)
  * PATCH /api/tickets/:id/status
  * Body: { status: 'open'|'in_progress'|'resolved'|'closed' }
+ * -> Sends an email to the buyer when status actually changes
  */
 router.patch(
   "/:id/status",
@@ -170,20 +185,87 @@ router.patch(
   authorize("admin", "hrmanager"),
   async (req, res) => {
     try {
-      const { status } = req.body;
-      if (!["open", "in_progress", "resolved", "closed"].includes(status)) {
+      const { status: newStatus } = req.body;
+      if (!["open", "in_progress", "resolved", "closed"].includes(newStatus)) {
         return res.status(400).json({ error: "Invalid status" });
       }
 
-      const t = await Ticket.findByIdAndUpdate(
-        req.params.id,
-        { status },
-        { new: true }
+      // 1) Find with buyer populated (to get buyer email)
+      const t = await Ticket.findById(req.params.id).populate(
+        "buyerId",
+        "name email"
       );
       if (!t) return res.status(404).json({ error: "Ticket not found" });
 
+      // 2) If same status — no email, no extra write
+      if (t.status === newStatus) {
+        return res.json({ ok: true, message: "No change" });
+      }
+
+      const oldStatus = t.status;
+
+      // 3) Save new status
+      t.status = newStatus;
+      await t.save();
+
+      // 4) Send email (non-blocking for API response)
+      (async () => {
+        try {
+          const to = t.buyerId?.email;
+          if (!to) {
+            console.warn("[email] buyer has no email; skipping");
+            return;
+          }
+
+          const subject = `Ticket ${t.ticketNo || t._id} status: ${pretty(
+            newStatus
+          )}`;
+          const html = `
+            <div style="font-family:Inter,Arial,sans-serif;line-height:1.6;color:#0f172a">
+              <h2 style="margin:0 0 8px">Ticket Status Updated</h2>
+              <p>Hello ${t.buyerId?.name || "Customer"},</p>
+              <p>Your ticket <b>${t.ticketNo || t._id}</b> (“${
+            t.subject
+          }”) changed from
+                 <b>${pretty(oldStatus)}</b> to <b>${pretty(newStatus)}</b>.</p>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin:12px 0">
+                <div><strong>Category:</strong> ${t.category}</div>
+                <div><strong>Priority:</strong> ${(
+                  t.priority || ""
+                ).toUpperCase()}</div>
+                <div><strong>Created:</strong> ${new Date(
+                  t.createdAt
+                ).toLocaleString()}</div>
+              </div>
+              <p>Thanks,<br/>${process.env.APP_NAME || "Egg Farm"}</p>
+              <p style="font-size:12px;color:#64748b;margin-top:12px">${
+                process.env.APP_URL || ""
+              }</p>
+            </div>`;
+          const text =
+            `Ticket ${t.ticketNo || t._id}\n` +
+            `Subject: ${t.subject}\n` +
+            `Status: ${pretty(oldStatus)} -> ${pretty(newStatus)}`;
+
+          const info = await mailer.sendMail({
+            from: `${process.env.APP_NAME || "Egg Farm"} <${
+              process.env.EMAIL_USER
+            }>`,
+            to,
+            subject,
+            html,
+            text,
+          });
+          console.log("[email] sent:", info?.messageId);
+        } catch (e) {
+          console.error("[email] failed:", e?.message || e);
+        }
+      })();
+
+      // 5) Respond with the updated ticket
       res.json(t);
     } catch (err) {
+      console.error(err);
       res.status(400).json({ error: err.message });
     }
   }

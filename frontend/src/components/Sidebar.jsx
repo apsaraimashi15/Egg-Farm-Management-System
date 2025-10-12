@@ -25,6 +25,41 @@ const Sidebar = ({ isOpen, onClose }) => {
     ...(user?.role === "buyer"
       ? [{ name: "Inquiry", href: "/inquiry", icon: "📨" }]
       : []),
+
+    ...(user?.role === "hrmanager"
+      ? [
+          { name: "Leave Requests", href: "/leave-requests", icon: "📅" },
+          { name: "Attendance", href: "/attendance", icon: "✅" },
+          { name: "Reports", href: "/reports", icon: "📊" },
+        ]
+      : []),
+    ...(user?.role === "employee"
+      ? [{ name: "Leave Form", href: "/leave-form", icon: "📝" }]
+      : []),
+    ...(user?.role === "admin" || user?.role === "employee"
+      ? [{ name: "Egg Production", href: "/egg-production", icon: "🥚" }]
+      : []),
+
+    ...(user?.role === "admin" ||
+    user?.role === "employee" ||
+    user?.role === "buyer"
+      ? [{ name: "Egg Stock", href: "/egg-stock", icon: "📦" }]
+      : []),
+
+    ...(user?.role === "admin" || user?.role === "employee"
+      ? [{ name: "Fertilizers", href: "/fertilizers", icon: "🌱" }]
+      : []),
+    ...(user?.role === "admin" || user?.role === "employee"
+      ? [{ name: "Reports", href: "/reports", icon: "📑" }]
+      : []),
+
+    ...(user?.role === "buyer"
+      ? [{ name: "Store", href: "/store", icon: "🛒" }]
+      : []),
+
+    ...(user?.role === "admin"
+      ? [{ name: "Purchase Management", href: "/purchases", icon: "🛒" }]
+      : []),
   ];
 
   const handleLogout = () => {

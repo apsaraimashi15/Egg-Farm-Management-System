@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -14,6 +16,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+require("./cron");
 
 app.get("/ping", (req, res) => res.send("pong"));
 
@@ -37,6 +40,20 @@ mongoose
       await admin.save();
       console.log("Default admin user created: admin@eggfarm.com / admin123");
     }
+    // Create default buyer user if not exists
+    const buyerExists = await User.findOne({ role: "buyer" });
+    if (!buyerExists) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash("buyer123", salt);
+      const buyer = new User({
+        name: "Sample Buyer",
+        email: "buyer@eggfarm.com",
+        password: hashedPassword,
+        role: "buyer",
+      });
+      await buyer.save();
+      console.log("Default buyer user created: buyer@eggfarm.com / buyer123");
+    }
   })
   .catch((err) => console.log("MongoDB connection error:", err.message));
 
@@ -45,6 +62,15 @@ app.use("/api/auth", require("./routes/auth"));
 app.use("/api/users", require("./routes/users"));
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/feed", feedRoutes);
+app.use("/api/leaves", require("./routes/leaveRoutes"));
+app.use("/api/attendance", require("./routes/attendanceRoutes"));
+app.use("/api/egg-production", require("./routes/EggProductionRoutes"));
+app.use("/api/egg-stock", require("./routes/EggStockRoutes"));
+app.use("/api/fertilizers", require("./routes/FertilizerRoutes"));
+app.use("/api/reports", require("./routes/ReportRoutes"));
+app.use("/api/alert", require("./routes/AlertRoutes"));
+app.use("/api/employee", require("./routes/EmployeeRoutes"));
+app.use("/api/purchases", require("./routes/PurchaseRoutes"));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

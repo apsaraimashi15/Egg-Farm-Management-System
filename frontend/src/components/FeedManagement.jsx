@@ -822,12 +822,12 @@ const FeedManagement = () => {
                       value={fFrom}
                       onChange={(e) => setFFrom(e.target.value)}
                     />
-                    <input
+                    {/* <input
                       type="date"
                       className="block w-full sm:w-40 px-3 py-2 border border-slate-300 rounded-lg text-sm"
                       value={fTo}
                       onChange={(e) => setFTo(e.target.value)}
-                    />
+                    /> */}
                     <input
                       type="text"
                       placeholder="Search note/batch…"
@@ -981,14 +981,13 @@ const FeedManagement = () => {
                 setRestockForm({ ...restockForm, batchNo: e.target.value })
               }
             />
-            <DateInput
-              redquired
+            {/* <DateInput
               label="Expiry Date"
               value={restockForm.expiryDate}
               onChange={(e) =>
                 setRestockForm({ ...restockForm, expiryDate: e.target.value })
               }
-            />
+            /> */}
             <TextArea
               type="text"
               label="Note"
@@ -1074,12 +1073,12 @@ const FeedManagement = () => {
               <>
                 <Row label="Unit Price" value={formatMoney(viewMv.unitPrice)} />
                 <Row label="Batch" value={viewMv.batchNo || "-"} />
-                <Row
+                {/* <Row
                   label="Expiry"
                   value={
                     viewMv.expiryDate ? viewMv.expiryDate.slice(0, 10) : "-"
                   }
-                />
+                /> */}
               </>
             )}
             {viewMv.type === "USE" && (
@@ -1146,13 +1145,13 @@ const FeedManagement = () => {
                     setEditForm({ ...editForm, batchNo: e.target.value })
                   }
                 />
-                <DateInput
+                {/* <DateInput
                   label="Expiry Date"
                   value={editForm.expiryDate}
                   onChange={(e) =>
                     setEditForm({ ...editForm, expiryDate: e.target.value })
                   }
-                />
+                /> */}
               </>
             ) : (
               <TextInput

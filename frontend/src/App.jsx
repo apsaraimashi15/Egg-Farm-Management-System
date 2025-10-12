@@ -8,18 +8,28 @@ import {
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./components/Login";
 import Register from "./components/Register";
-import Dashboard from "./components/Dashboard";
+import RoleBasedDashboard from "./components/RoleBasedDashboard";
 import UserManagement from "./components/UserManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
 import FeedManagement from "./components/FeedManagement";
 import TicketManagement from "./components/TicketManagement";
-
+import LeaveRequests from "./components/LeaveRequests";
+import LeaveForm from "./components/LeaveForm";
+import Attendance from "./components/Attendance";
+import Reports from "./components/Reports";
+import EggProductionManagement from "./components/EggProductionManagement";
+import EggStockManagement from "./components/EggStockManagement";
+import FertilizerManagement from "./components/FertilizerManagement";
+import ReportManagement from "./components/ReportManagement";
+import Store from "./components/Store";
+import Checkout from "./components/Checkout";
+import PurchaseManagement from "./components/PurchaseManagement";
 import "./App.css";
 
 const App = () => {
   return (
     <AuthProvider>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <div className="min-h-screen bg-gray-50">
           <Routes>
             {/* Public */}
@@ -31,7 +41,32 @@ const App = () => {
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <RoleBasedDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/store"
+              element={
+                <ProtectedRoute roles={["buyer"]}>
+                  <Store />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/checkout"
+              element={
+                <ProtectedRoute roles={["buyer"]}>
+                  <Checkout />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/purchases"
+              element={
+                <ProtectedRoute roles={["admin"]}>
+                  <PurchaseManagement />
                 </ProtectedRoute>
               }
             />
@@ -73,9 +108,76 @@ const App = () => {
               }
             />
 
-            {/* Default + 404 */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<div className="p-6">Not Found</div>} />
+            <Route
+              path="/leave-requests"
+              element={
+                <ProtectedRoute roles={["hrmanager"]}>
+                  <LeaveRequests />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/leave-form"
+              element={
+                <ProtectedRoute roles={["employee"]}>
+                  <LeaveForm />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/attendance"
+              element={
+                <ProtectedRoute roles={["hrmanager"]}>
+                  <Attendance />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/report"
+              element={
+                <ProtectedRoute roles={["hrmanager"]}>
+                  <Reports />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/egg-production"
+              element={
+                <ProtectedRoute roles={["admin", "employee"]}>
+                  <EggProductionManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/egg-stock"
+              element={
+                <ProtectedRoute roles={["admin", "employee"]}>
+                  <EggStockManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/fertilizers"
+              element={
+                <ProtectedRoute roles={["admin", "employee"]}>
+                  <FertilizerManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute roles={["admin", "employee"]}>
+                  <ReportManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>
       </Router>

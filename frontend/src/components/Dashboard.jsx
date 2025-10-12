@@ -1,4 +1,3 @@
-// src/components/Dashboard.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -11,12 +10,16 @@ const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  // --- SAFETY: never render this for buyers (RoleBasedDashboard should handle it too) ---
+  if (user?.role === "buyer") {
+    return null; // or <></> ; buyers should only see BuyerDashboard
+  }
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const isAdmin = user?.role === "admin";
   const isHR = user?.role === "hrmanager";
-  const isBuyer = user?.role === "buyer";
   const isEmployee = user?.role === "employee";
 
   const roleMeta = {
@@ -31,12 +34,6 @@ const Dashboard = () => {
       title: "HR Operations",
       subtitle: "Track attendance, leaves, and view users.",
     },
-    buyer: {
-      icon: "🛒",
-      title: "Buyer Portal",
-      subtitle:
-        "Place orders, track deliveries, and view production availability.",
-    },
     employee: {
       icon: "🥚",
       title: "Production & Feed",
@@ -50,20 +47,17 @@ const Dashboard = () => {
   const [totalTickets, setTotalTickets] = useState(0);
   const [totalFeedQty, setTotalFeedQty] = useState(0);
   const [totalFeedItems, setTotalFeedItems] = useState(0);
-  const [myTicketsCount, setMyTicketsCount] = useState(0);
 
-  // local demo stats
+  // local demo stats (NO buyer fields)
   const [stats, setStats] = useState({
     ticketsOpen: 0,
     ticketsInProgress: 0,
     feedItems: 0,
     feedQty: 0,
     eggToday: 0,
-    eggThisMonth: 0,
-    buyerOrders: 0,
-    buyerPending: 0,
     attendanceToday: 0,
     leavesPending: 0,
+    buyerOrders: 0, // admin analytics only
   });
   const [recent, setRecent] = useState([]);
 
@@ -92,12 +86,9 @@ const Dashboard = () => {
         setTotalUsers(0);
       }
 
-      // TICKETS (use data.total from your backend)
+      // TICKETS (global count for admin/hr/employee)
       try {
-        const params = { page: 1, limit: 1 }; // we only need the count
-        // For buyers, backend already scopes to own tickets; adding mine=true is fine
-        if (isBuyer) params.mine = "true";
-
+        const params = { page: 1, limit: 1 }; // only need count
         const res = await axiosClient.get("/api/tickets", { params });
 
         let ticketTotal = 0;
@@ -107,13 +98,10 @@ const Dashboard = () => {
             ticketTotal = res.data.items.length;
           else if (Array.isArray(res.data)) ticketTotal = res.data.length;
         }
-
-        setTotalTickets(ticketTotal); // all tickets (admin/hr) or my tickets (buyer scope)
-        setMyTicketsCount(isBuyer ? ticketTotal : 0);
+        setTotalTickets(ticketTotal);
       } catch (e) {
         console.warn("tickets error:", e?.response?.status, e?.response?.data);
         setTotalTickets(0);
-        setMyTicketsCount(0);
       }
 
       // FEED TOTALS
@@ -140,7 +128,7 @@ const Dashboard = () => {
     };
 
     loadCounts();
-  }, [axiosClient, isAdmin, isHR, isBuyer, isEmployee]);
+  }, [axiosClient, isAdmin, isHR, isEmployee]);
 
   useEffect(() => {
     const load = async () => {
@@ -199,15 +187,6 @@ const Dashboard = () => {
           },
           { id: 3, text: "New user onboarded", t: "user", when: "3h" },
         ]);
-      } else if (isBuyer) {
-        setStats((s) => ({
-          ...s,
-          buyerOrders: 0, // replace when you wire orders
-          buyerPending: 0,
-          eggThisMonth: 0,
-          ticketsOpen: 0,
-        }));
-        setRecent([]);
       } else if (isEmployee) {
         setStats((s) => ({ ...s, eggToday: 4100, ticketsOpen: 0 }));
         setRecent([
@@ -229,7 +208,7 @@ const Dashboard = () => {
       setLoading(false);
     };
     load();
-  }, [isAdmin, isHR, isBuyer, isEmployee]);
+  }, [isAdmin, isHR, isEmployee]);
 
   const handleLogout = () => {
     logout();
@@ -306,7 +285,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Top shortcuts per role */}
+              {/* Top shortcuts per role (NO buyer here) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-8">
                 {isAdmin && (
                   <>
@@ -318,12 +297,12 @@ const Dashboard = () => {
                     />
                     <HeaderShortcut to="/tickets" icon="🎟️" label="Inquiries" />
                     <HeaderShortcut
-                      to="/production"
+                      to="/egg-production"
                       icon="🥚"
                       label="Production"
                     />
                     <HeaderShortcut
-                      to="/orders"
+                      to="/purchases"
                       icon="📦"
                       label="Buyer Orders"
                     />
@@ -338,36 +317,28 @@ const Dashboard = () => {
                       icon="🕒"
                       label="Attendance"
                     />
-                    <HeaderShortcut to="/leaves" icon="🏖️" label="Leaves" />
+                    <HeaderShortcut
+                      to="/leave-requests"
+                      icon="🏖️"
+                      label="Leaves"
+                    />
                     <HeaderShortcut to="/users" icon="👥" label="Users" />
                     <HeaderShortcut to="/tickets" icon="🎟️" label="Inquiries" />
-                  </>
-                )}
-
-                {isBuyer && (
-                  <>
-                    <HeaderShortcut to="/orders" icon="🛒" label="My Orders" />
-                    <HeaderShortcut
-                      to="/inquiry"
-                      icon="🎟️"
-                      label="My Inquiries"
-                    />
-                    <HeaderShortcut
-                      to="/production"
-                      icon="🥚"
-                      label="Production (Availability)"
-                    />
                   </>
                 )}
 
                 {isEmployee && (
                   <>
                     <HeaderShortcut
-                      to="/production"
+                      to="/egg-production"
                       icon="🥚"
                       label="Record Production"
                     />
-                    <HeaderShortcut to="/feed" icon="🌾" label="Feed Issue" />
+                    <HeaderShortcut
+                      to="/feed-management"
+                      icon="🌾"
+                      label="Feed Issue"
+                    />
                     <HeaderShortcut
                       to="/tickets"
                       icon="🎟️"
@@ -378,7 +349,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* KPI cards per role */}
+            {/* KPI cards per role (NO buyer here) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               <StatCard
                 title="Role"
@@ -463,39 +434,6 @@ const Dashboard = () => {
                     value={stats.ticketsOpen}
                     icon="🎟️"
                     color="from-rose-100 to-rose-200"
-                    loading={loading}
-                  />
-                </>
-              )}
-
-              {isBuyer && (
-                <>
-                  <StatCard
-                    title="My Orders"
-                    value={stats.buyerOrders}
-                    icon="🧾"
-                    color="from-emerald-100 to-emerald-200"
-                    loading={loading}
-                  />
-                  <StatCard
-                    title="Pending"
-                    value={stats.buyerPending}
-                    icon="⏳"
-                    color="from-yellow-100 to-yellow-200"
-                    loading={loading}
-                  />
-                  <StatCard
-                    title="This Month Eggs"
-                    value={stats.eggThisMonth.toLocaleString()}
-                    icon="🥚"
-                    color="from-purple-100 to-purple-200"
-                    loading={loading}
-                  />
-                  <StatCard
-                    title="My Tickets (All)"
-                    value={myTicketsCount}
-                    icon="🎟️"
-                    color="from-pink-100 to-pink-200"
                     loading={loading}
                   />
                 </>
